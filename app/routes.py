@@ -374,7 +374,7 @@ def get_notification_status(session: Session) -> dict:
     next_notification = None
     if topic and last_feeding:
         sent_thresholds = {
-            row[0]
+            row
             for row in session.exec(
                 select(NotificationLog.threshold_hours).where(
                     NotificationLog.feeding_id == last_feeding.id

@@ -5,7 +5,7 @@ from urllib.parse import unquote
 import httpx
 from sqlmodel import Session
 
-from app.models import Feeding
+from app.models import Feeding, NotificationLog
 from app.notifier import notifier
 
 
@@ -123,3 +123,25 @@ def test_current_gap_test_notification(client, monkeypatch, test_engine):
     assert data["title"] == "5h 0m since last feed"
     assert data["priority"] == 4
     assert data["topic"] == "test-topic"
+
+
+def test_settings_page_with_notification_log(client, test_engine, monkeypatch):
+    monkeypatch.setenv("NTFY_TOPIC", "test-topic")
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime.now() - timedelta(hours=5),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+        log = NotificationLog(feeding_id=feeding.id, threshold_hours=2)
+        session.add(log)
+        session.commit()
+
+    response = client.get("/settings")
+    assert response.status_code == 200
+    assert "test-topic" in response.text
