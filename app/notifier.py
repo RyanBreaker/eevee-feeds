@@ -135,7 +135,7 @@ class FeedingNotifier:
 
         url = f"{self.server}/"
         priority = 4 if threshold == self.thresholds[-1] else 3
-        title = f"{threshold} hours since last feed"
+        title = f"🍼 {threshold} hours since last feed"
         body = (
             f"Last feeding: PO {feeding.po_amount} ml / NG {feeding.ng_amount} ml "
             f"at {feeding.timestamp.strftime('%I:%M %p')}."
