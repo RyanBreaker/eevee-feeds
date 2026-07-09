@@ -1,0 +1,12 @@
+<tr id="feeding-{{ feeding.id }}" class="editing">
+  <td colspan="6">
+    <form hx-put="/feedings/{{ feeding.id }}" hx-target="closest tr" hx-swap="outerHTML" class="inline-form">
+      <input type="datetime-local" name="timestamp" value="{{ feeding.timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
+      <input type="number" name="po_amount" value="{{ feeding.po_amount }}" min="0" required>
+      <input type="number" name="ng_amount" value="{{ feeding.ng_amount }}" min="0" required>
+      <input type="text" name="notes" value="{{ feeding.notes or '' }}" placeholder="Notes">
+      <button type="submit">Save</button>
+      <button type="button" hx-get="/feedings/{{ feeding.id }}" hx-target="closest tr" hx-swap="outerHTML">Cancel</button>
+    </form>
+  </td>
+</tr>

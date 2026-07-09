@@ -1,0 +1,23 @@
+{% include "partials/summary_cards.html" %}
+
+<table id="feeding-list" class="feeding-table">
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>PO</th>
+      <th>NG</th>
+      <th>Total</th>
+      <th>Notes</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for feeding in feedings %}
+    {% include "partials/feeding_row.html" %}
+    {% else %}
+    <tr>
+      <td colspan="6" class="empty">No feedings recorded for this period.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

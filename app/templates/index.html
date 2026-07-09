@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section">
+  {% include "partials/summary_cards.html" %}
+</section>
+
+<section class="section">
+  <h2>Add Feeding</h2>
+  <form class="feeding-form" hx-post="/feedings" hx-target="#feeding-list" hx-swap="outerHTML" hx-on::after-request="this.reset(); this.querySelector('[name=timestamp]').value = document.getElementById('now-default').value">
+    <input type="hidden" id="now-default" value="{{ now }}">
+    <div class="form-row">
+      <label>
+        Time
+        <input type="datetime-local" name="timestamp" value="{{ now }}" required>
+      </label>
+      <label>
+        PO (ml)
+        <input type="number" name="po_amount" min="0" required>
+      </label>
+      <label>
+        NG (ml)
+        <input type="number" name="ng_amount" min="0" required>
+      </label>
+      <label>
+        Notes
+        <input type="text" name="notes" placeholder="Optional">
+      </label>
+    </div>
+    <button type="submit">Save Feeding</button>
+  </form>
+</section>
+
+<section class="section">
+  <h2>Today's Feedings</h2>
+  {% include "partials/feeding_list.html" %}
+</section>
+
+<section class="section">
+  <h2>Last 14 Periods</h2>
+  <canvas id="historyChart"></canvas>
+</section>
+
+<script>
+  const ctx = document.getElementById('historyChart').getContext('2d');
+  const chartData = {{ chart_data | tojson }};
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: chartData.map(d => d.label),
+      datasets: [
+        {
+          label: 'Total Volume (ml)',
+          data: chartData.map(d => d.total),
+          backgroundColor: 'rgba(54, 162, 235, 0.5)',
+          yAxisID: 'y',
+        },
+        {
+          label: 'Target (ml)',
+          data: chartData.map(d => d.target),
+          type: 'line',
+          borderColor: 'rgba(255, 99, 132, 0.8)',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          yAxisID: 'y',
+        },
+        {
+          label: 'PO %',
+          data: chartData.map(d => d.po_pct),
+          type: 'line',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 2,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'ml' }
+        },
+        y1: {
+          position: 'right',
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: '%' }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

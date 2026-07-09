@@ -1,0 +1,11 @@
+<tr id="feeding-{{ feeding.id }}">
+  <td>{{ feeding.timestamp.strftime("%I:%M %p") }}</td>
+  <td>{{ feeding.po_amount }} ml</td>
+  <td>{{ feeding.ng_amount }} ml</td>
+  <td>{{ feeding.po_amount + feeding.ng_amount }} ml</td>
+  <td>{{ feeding.notes or "" }}</td>
+  <td class="actions">
+    <button hx-get="/feedings/{{ feeding.id }}/edit" hx-target="closest tr" hx-swap="outerHTML">Edit</button>
+    <button hx-delete="/feedings/{{ feeding.id }}" hx-target="#feeding-list" hx-swap="outerHTML" hx-confirm="Delete this feeding?">Delete</button>
+  </td>
+</tr>

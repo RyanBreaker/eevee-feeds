@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="section">
+  <h2>Target Volume Rule</h2>
+  <p class="help-text">
+    The current daily target is computed from this rule. It increases by the configured amount every Wednesday after the start date.
+  </p>
+  <form method="post" action="/settings" class="settings-form">
+    <div class="form-row">
+      <label>
+        Start Date
+        <input type="date" name="start_date" value="{{ config.start_date }}" required>
+      </label>
+      <label>
+        Start Volume (ml)
+        <input type="number" name="start_volume" value="{{ config.start_volume }}" min="0" required>
+      </label>
+      <label>
+        Increment (ml)
+        <input type="number" name="increment" value="{{ config.increment }}" min="0" required>
+      </label>
+      <label>
+        Increment Day
+        <select name="increment_day" required>
+          <option value="Monday" {% if config.increment_day == 'Monday' %}selected{% endif %}>Monday</option>
+          <option value="Tuesday" {% if config.increment_day == 'Tuesday' %}selected{% endif %}>Tuesday</option>
+          <option value="Wednesday" {% if config.increment_day == 'Wednesday' %}selected{% endif %}>Wednesday</option>
+          <option value="Thursday" {% if config.increment_day == 'Thursday' %}selected{% endif %}>Thursday</option>
+          <option value="Friday" {% if config.increment_day == 'Friday' %}selected{% endif %}>Friday</option>
+          <option value="Saturday" {% if config.increment_day == 'Saturday' %}selected{% endif %}>Saturday</option>
+          <option value="Sunday" {% if config.increment_day == 'Sunday' %}selected{% endif %}>Sunday</option>
+        </select>
+      </label>
+    </div>
+    <button type="submit">Save Settings</button>
+  </form>
+</section>
+{% endblock %}
