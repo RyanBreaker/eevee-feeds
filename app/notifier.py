@@ -132,7 +132,7 @@ class FeedingNotifier:
         if not self.client:
             return False
 
-        url = f"{self.server}/{self.topic}"
+        url = f"{self.server}/"
         priority = 4 if threshold == self.thresholds[-1] else 3
         title = f"{threshold} hours since last feed"
         body = (
@@ -140,6 +140,7 @@ class FeedingNotifier:
             f"at {feeding.timestamp.strftime('%I:%M %p')}."
         )
         payload = {
+            "topic": self.topic,
             "title": title,
             "message": body,
             "priority": priority,
@@ -161,8 +162,9 @@ class FeedingNotifier:
         if not self.client or not self.topic:
             return False
 
-        url = f"{self.server}/{self.topic}"
+        url = f"{self.server}/"
         payload = {
+            "topic": self.topic,
             "title": "Test notification",
             "message": "This is a test from the feedings app.",
             "priority": 3,
