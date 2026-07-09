@@ -2,6 +2,25 @@
 
 {% block content %}
 <section class="section">
+  <div class="period-nav">
+    <a class="nav-arrow" href="/?period={{ previous_period }}">← Previous</a>
+    <span class="period-label">{{ selected_period_label }}</span>
+    <a class="nav-arrow" href="/?period={{ next_period }}">Next →</a>
+  </div>
+  <form class="period-date-form" method="get" action="/">
+    <label>
+      Jump to date
+      <input type="date" name="period" value="{{ selected_period.date().isoformat() }}">
+    </label>
+    <button type="submit">Go</button>
+    {% if not is_current %}
+    <a href="/" class="today-link">Today</a>
+    {% endif %}
+  </form>
+</section>
+
+{% if is_current %}
+<section class="section">
   <h2>Add Feeding</h2>
   <form class="feeding-form" id="add-feeding-form" hx-post="/feedings" hx-target="#feeding-list" hx-swap="outerHTML" hx-on::after-request="this.reset(); setLocalTimestamp();">
     <div class="form-row">
@@ -25,9 +44,10 @@
     <button type="submit">Save Feeding</button>
   </form>
 </section>
+{% endif %}
 
 <section class="section">
-  <h2>Today's Feedings</h2>
+  <h2>{% if is_current %}Today's Feedings{% else %}Feedings for {{ selected_period_label }}{% endif %}</h2>
   {% include "partials/feeding_list.html" %}
 </section>
 

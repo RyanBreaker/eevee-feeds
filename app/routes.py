@@ -1,4 +1,4 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, time, timedelta
 from io import StringIO
 from typing import Optional
 from urllib.parse import quote
@@ -67,11 +67,16 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     }
 
 
-def get_chart_data(session: Session, config: TargetConfig) -> list[dict]:
+def get_chart_data(session: Session, config: TargetConfig, end_period: datetime) -> list[dict]:
     current_period = get_current_period_start()
+    if end_period >= current_period:
+        chart_end = current_period - timedelta(days=1)
+    else:
+        chart_end = end_period
+
     periods = []
     for i in range(13, -1, -1):
-        start = current_period - timedelta(days=i)
+        start = chart_end - timedelta(days=i)
         summary = get_period_summary(session, config, start)
         periods.append(
             {
@@ -87,13 +92,29 @@ def get_chart_data(session: Session, config: TargetConfig) -> list[dict]:
 @router.get("/", response_class=HTMLResponse)
 def index(
     request: Request,
+    period: Optional[str] = Query(None),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
     current_period = get_current_period_start()
-    summary = get_period_summary(session, config, current_period)
-    chart_data = get_chart_data(session, config)
+
+    if period:
+        try:
+            selected_date = datetime.strptime(period, "%Y-%m-%d").date()
+            selected_period = datetime.combine(selected_date, time(6, 0))
+        except ValueError:
+            selected_period = current_period
+    else:
+        selected_period = current_period
+
+    if selected_period > current_period:
+        selected_period = current_period
+
+    is_current = selected_period.date() == current_period.date()
+    summary = get_period_summary(session, config, selected_period)
+    chart_data = get_chart_data(session, config, selected_period)
+
     return templates.TemplateResponse(
         "index.html",
         {
@@ -101,6 +122,11 @@ def index(
             "summary": summary,
             "feedings": summary["feedings"],
             "chart_data": chart_data,
+            "selected_period": selected_period,
+            "selected_period_label": selected_period.strftime("%b %-d"),
+            "previous_period": (selected_period - timedelta(days=1)).date().isoformat(),
+            "next_period": (selected_period + timedelta(days=1)).date().isoformat(),
+            "is_current": is_current,
         },
     )
 
@@ -199,8 +225,8 @@ def update_feeding(
     session.commit()
 
     config = get_or_create_config(session)
-    current_period = get_current_period_start()
-    summary = get_period_summary(session, config, current_period)
+    feeding_period = get_period_start(feeding.timestamp)
+    summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
         "partials/feeding_row_oob.html",
         {
@@ -221,12 +247,12 @@ def delete_feeding(
     feeding = session.get(Feeding, feeding_id)
     if not feeding:
         raise HTTPException(status_code=404, detail="Feeding not found")
+    feeding_period = get_period_start(feeding.timestamp)
     session.delete(feeding)
     session.commit()
 
     config = get_or_create_config(session)
-    current_period = get_current_period_start()
-    summary = get_period_summary(session, config, current_period)
+    summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
         "partials/feeding_list.html",
         {
