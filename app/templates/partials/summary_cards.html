@@ -18,7 +18,12 @@
   {% if summary.time_since_last %}
   <div class="summary-card">
     <div class="summary-label">Since last feed</div>
-    <div class="summary-value">{{ summary.time_since_last | format_duration }}</div>
+    <div class="summary-value">
+      <span class="auto-duration"
+            data-since-seconds="{{ summary.time_since_last.total_seconds() | int }}">
+        {{ summary.time_since_last | format_duration }}
+      </span>
+    </div>
   </div>
   {% endif %}
   <div class="summary-card">

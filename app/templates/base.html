@@ -7,6 +7,35 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/style.css">
+  <script>
+    function formatDuration(seconds) {
+      seconds = Math.max(0, seconds);
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (hours > 0) {
+        return hours + 'h ' + minutes + 'm';
+      }
+      return minutes + 'm';
+    }
+
+    function updateAutoDurations() {
+      const now = Date.now();
+      document.querySelectorAll('.auto-duration').forEach(function(el) {
+        if (!el.dataset.renderedAt) {
+          el.dataset.renderedAt = now;
+        }
+        const renderedAt = parseInt(el.dataset.renderedAt, 10);
+        const initialSeconds = parseInt(el.dataset.sinceSeconds, 10) || 0;
+        const elapsedSeconds = Math.floor((now - renderedAt) / 1000);
+        el.textContent = formatDuration(initialSeconds + elapsedSeconds);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      updateAutoDurations();
+      setInterval(updateAutoDurations, 10000);
+    });
+  </script>
 </head>
 <body>
   <nav class="nav">
