@@ -1,15 +1,17 @@
-from datetime import datetime, date, time, timedelta
+import csv
+import os
+import secrets
+from datetime import date, datetime, time, timedelta
 from io import StringIO
 from typing import Optional
 from urllib.parse import quote
 
-import csv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from app.auth import require_auth
+from app.auth import require_auth, verify_credentials
 from app.csv_import import import_feedings_from_text
 from app.database import get_session
 from app.models import Feeding, TargetConfig
@@ -144,6 +146,35 @@ def get_chart_data(session: Session, config: TargetConfig, end_period: datetime)
             }
         )
     return periods
+
+
+@router.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, error: Optional[str] = None):
+    return templates.TemplateResponse(
+        "login.html", {"request": request, "error": error}
+    )
+
+
+@router.post("/login")
+def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    if verify_credentials(username, password):
+        request.session["user"] = username
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request, "error": "Invalid username or password"},
+        status_code=401,
+    )
+
+
+@router.get("/logout")
+def logout(request: Request):
+    request.session.pop("user", None)
+    return RedirectResponse(url="/login", status_code=303)
 
 
 @router.get("/", response_class=HTMLResponse)

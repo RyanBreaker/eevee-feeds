@@ -52,6 +52,8 @@ The CSV should have columns `Timestamp, PO, NG`. If feedings already exist in th
 4. Set environment variables:
    - `AUTH_USERNAME`
    - `AUTH_PASSWORD`
+   - `SECRET_KEY` (a long random string used to sign session cookies)
+   - `SESSION_SECURE=true` (so the session cookie is only sent over HTTPS)
 5. Deploy.
 
 Railway uses the `Dockerfile`.
@@ -61,8 +63,11 @@ Railway uses the `Dockerfile`.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_URL` | Database connection URL | `sqlite:///./feedings.db` |
-| `AUTH_USERNAME` | Basic auth username | none (auth disabled) |
-| `AUTH_PASSWORD` | Basic auth password | none (auth disabled) |
+| `AUTH_USERNAME` | Login username | none (auth disabled) |
+| `AUTH_PASSWORD` | Login password | none (auth disabled) |
+| `SECRET_KEY` | Secret key used to sign session cookies | fallback to `AUTH_PASSWORD` or `dev-secret-key` |
+| `SESSION_MAX_AGE` | Session cookie lifetime in seconds | `2592000` (30 days) |
+| `SESSION_SECURE` | Only send session cookie over HTTPS | `false` |
 | `TZ` | Server timezone for period boundaries (e.g. `America/Chicago`) | `America/Chicago` |
 
 ## Timezone

@@ -16,6 +16,9 @@ services:
       DATABASE_URL: postgresql://feedings:feedings@db:5432/feedings
       AUTH_USERNAME: admin
       AUTH_PASSWORD: change-me
+      SECRET_KEY: dev-secret-key
+      SESSION_MAX_AGE: 2592000
+      SESSION_SECURE: "false"
       TZ: America/Chicago
     ports:
       - "8000:8000"
