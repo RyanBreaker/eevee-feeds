@@ -7,12 +7,11 @@
 
 <section class="section">
   <h2>Add Feeding</h2>
-  <form class="feeding-form" hx-post="/feedings" hx-target="#feeding-list" hx-swap="outerHTML" hx-on::after-request="this.reset(); this.querySelector('[name=timestamp]').value = document.getElementById('now-default').value">
-    <input type="hidden" id="now-default" value="{{ now }}">
+  <form class="feeding-form" id="add-feeding-form" hx-post="/feedings" hx-target="#feeding-list" hx-swap="outerHTML" hx-on::after-request="this.reset(); setLocalTimestamp();">
     <div class="form-row">
       <label>
         Time
-        <input type="datetime-local" name="timestamp" value="{{ now }}" required>
+        <input type="datetime-local" name="timestamp" required>
       </label>
       <label>
         PO (ml)
@@ -42,6 +41,17 @@
 </section>
 
 <script>
+  function setLocalTimestamp() {
+    const input = document.querySelector('#add-feeding-form input[name="timestamp"]');
+    if (!input) return;
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const offset = now.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(now.getTime() - offset).toISOString().slice(0, 16);
+    input.value = localISOTime;
+  }
+  setLocalTimestamp();
+
   const ctx = document.getElementById('historyChart').getContext('2d');
   const chartData = {{ chart_data | tojson }};
   new Chart(ctx, {

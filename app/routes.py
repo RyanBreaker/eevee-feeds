@@ -101,7 +101,6 @@ def index(
             "summary": summary,
             "feedings": summary["feedings"],
             "chart_data": chart_data,
-            "now": datetime.now().strftime("%Y-%m-%dT%H:%M"),
         },
     )
 
