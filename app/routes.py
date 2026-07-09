@@ -110,8 +110,12 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         avg_gap = timedelta(seconds=avg_seconds)
 
     time_since_last = None
-    if feedings and period_start == get_current_period_start():
-        time_since_last = datetime.now() - feedings[-1].timestamp
+    if period_start == get_current_period_start():
+        last_feeding = session.exec(
+            select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
+        ).first()
+        if last_feeding:
+            time_since_last = datetime.now() - last_feeding.timestamp
 
     return {
         "po": po,
