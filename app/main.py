@@ -54,4 +54,24 @@ async def auth_required_handler(request: Request, exc: AuthRequiredException):
     return RedirectResponse(url="/login", status_code=302)
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception(
+        "Unhandled exception: %s",
+        exc,
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
+    if request.headers.get("HX-Request"):
+        return Response(
+            "An unexpected error occurred.",
+            status_code=500,
+            media_type="text/plain",
+        )
+    return templates.TemplateResponse(
+        "error.html",
+        {"request": request},
+        status_code=500,
+    )
+
+
 app.include_router(router)

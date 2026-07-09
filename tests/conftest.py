@@ -13,6 +13,11 @@ import app.notifier  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
 
+@fastapi_app.get("/__test_error")
+def _raise_test_error():
+    raise RuntimeError("intentional test error")
+
+
 @pytest.fixture(scope="function")
 def test_engine():
     engine = create_engine(
