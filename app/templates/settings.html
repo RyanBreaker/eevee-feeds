@@ -8,6 +8,39 @@
 {% endif %}
 
 <section class="section">
+  <h2>Notifications</h2>
+  {% if notification.enabled %}
+  <p class="help-text">Notifications are enabled via ntfy.</p>
+  <ul class="settings-list">
+    <li><strong>Topic:</strong> {{ notification.topic }}</li>
+    <li><strong>Server:</strong> {{ notification.server }}</li>
+    <li><strong>Thresholds:</strong> {{ notification.thresholds | join(', ') }} hours</li>
+    <li>
+      <strong>Next notification:</strong>
+      {% if notification.next_notification %}
+        {{ notification.next_notification.strftime('%I:%M %p') }}
+      {% else %}
+        None scheduled
+      {% endif %}
+    </li>
+  </ul>
+  <form method="post" action="/settings/test-notify" class="settings-form">
+    <button type="submit">Send test notification</button>
+  </form>
+  {% else %}
+  <p class="help-text">
+    Notifications are disabled. Set <code>NTFY_TOPIC</code> to enable push alerts.
+  </p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <h2>Export CSV</h2>
+  <p class="help-text">Download a CSV of all feedings.</p>
+  <a href="/export" class="button">Export Feedings</a>
+</section>
+
+<section class="section">
   <h2>Import CSV</h2>
   <p class="help-text">
     Upload a CSV with columns <code>Timestamp, PO, NG</code>. If feedings already exist, the import will be skipped to avoid duplicates.

@@ -186,7 +186,8 @@ select {
   margin-top: 0.25rem;
 }
 
-button {
+button, .button {
+  display: inline-block;
   background: var(--primary);
   color: white;
   border: none;
@@ -194,9 +195,10 @@ button {
   padding: 0.5rem 1rem;
   font-size: 0.95rem;
   cursor: pointer;
+  text-decoration: none;
 }
 
-button:hover {
+button:hover, .button:hover {
   background: var(--primary-hover);
 }
 
@@ -217,6 +219,21 @@ button.danger {
 .feeding-form,
 .settings-form {
   width: 100%;
+}
+
+.settings-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+.settings-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-list li:last-child {
+  border-bottom: none;
 }
 
 .feeding-table {

@@ -11,6 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import AuthRequiredException
 from app.database import create_db_and_tables
+from app.notifier import notifier
 from app.routes import router
 
 logger = logging.getLogger("uvicorn")
@@ -22,12 +23,17 @@ async def lifespan(app: FastAPI):
     local_time = time.strftime("%Y-%m-%d %H:%M:%S %Z (UTC%z)", time.localtime())
     logger.info("Starting app. TZ=%s, current local time=%s", tz, local_time)
     create_db_and_tables()
-    yield
+    notifier.start()
+    try:
+        yield
+    finally:
+        await notifier.stop()
 
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+app.state.notifier = notifier
 
 secret_key = os.environ.get("SECRET_KEY", os.environ.get("AUTH_PASSWORD", "dev-secret-key"))
 max_age = int(os.environ.get("SESSION_MAX_AGE", "2592000"))

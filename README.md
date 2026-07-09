@@ -54,6 +54,8 @@ The CSV should have columns `Timestamp, PO, NG`. If feedings already exist in th
    - `AUTH_PASSWORD`
    - `SECRET_KEY` (a long random string used to sign session cookies)
    - `SESSION_SECURE=true` (so the session cookie is only sent over HTTPS)
+   - `NTFY_TOPIC` (optional, for ntfy push notifications)
+   - `NTFY_SERVER` (optional, defaults to `https://ntfy.sh`)
 5. Deploy.
 
 Railway uses the `Dockerfile`.
@@ -69,6 +71,24 @@ Railway uses the `Dockerfile`.
 | `SESSION_MAX_AGE` | Session cookie lifetime in seconds | `2592000` (30 days) |
 | `SESSION_SECURE` | Only send session cookie over HTTPS | `false` |
 | `TZ` | Server timezone for period boundaries (e.g. `America/Chicago`) | `America/Chicago` |
+| `NTFY_TOPIC` | ntfy topic for push notifications | none (disabled) |
+| `NTFY_SERVER` | ntfy server URL | `https://ntfy.sh` |
+| `NTFY_THRESHOLDS` | Hours since last feed to notify, comma-separated | `2,3,4` |
+| `APP_URL` | Optional URL added to ntfy notifications as a click link | none |
+
+## Notifications
+
+The app can push alerts to [ntfy](https://ntfy.sh) when a configurable number of hours have passed since the most recent feeding.
+
+To enable notifications:
+
+1. Create a topic on ntfy (e.g., from the ntfy app or by picking a unique topic name).
+2. Set `NTFY_TOPIC` to that topic name.
+3. Optional: set `NTFY_SERVER` if you are self-hosting, and `APP_URL` if you want the notification to open the app when tapped.
+
+The default thresholds are 2, 3, and 4 hours. The app checks once per minute and sends one alert per threshold. Alerts stop after the highest threshold.
+
+Go to **Settings** to see the configured topic, the next expected notification time, and to send a test notification.
 
 ## Timezone
 
@@ -76,4 +96,4 @@ Period boundaries are based on server time. When deploying to Railway, set `TZ` 
 
 ## CSV export
 
-Click **Export** in the nav bar to download a CSV of all feedings.
+Go to **Settings** and click **Export Feedings** to download a CSV of all feedings.

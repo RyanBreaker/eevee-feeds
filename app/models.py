@@ -1,5 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
+
+from sqlalchemy import UniqueConstraint
 from sqlmodel import SQLModel, Field
 
 
@@ -21,3 +23,12 @@ class TargetConfig(SQLModel, table=True):
     increment_day: str = "Wednesday"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class NotificationLog(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("feeding_id", "threshold_hours"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    feeding_id: int = Field(index=True)
+    threshold_hours: int = Field(index=True)
+    sent_at: datetime = Field(default_factory=datetime.utcnow)

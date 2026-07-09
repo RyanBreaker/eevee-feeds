@@ -14,7 +14,8 @@ from sqlmodel import Session, select
 from app.auth import require_auth, verify_credentials
 from app.csv_import import import_feedings_from_text
 from app.database import get_session
-from app.models import Feeding, TargetConfig
+from app.models import Feeding, NotificationLog, TargetConfig
+from app.notifier import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notifier
 from app.period import format_duration, get_period_label, get_period_start, get_target_volume
 
 router = APIRouter()
@@ -357,6 +358,46 @@ def delete_feeding(
         },
     )
 
+def get_notification_status(session: Session) -> dict:
+    topic = os.getenv("NTFY_TOPIC")
+    server = (os.getenv("NTFY_SERVER") or DEFAULT_SERVER).rstrip("/")
+    raw_thresholds = os.getenv("NTFY_THRESHOLDS")
+    thresholds = (
+        notifier._parse_thresholds(raw_thresholds)
+        if raw_thresholds
+        else DEFAULT_THRESHOLDS
+    )
+    last_feeding = session.exec(
+        select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
+    ).first()
+
+    next_notification = None
+    if topic and last_feeding:
+        sent_thresholds = {
+            row[0]
+            for row in session.exec(
+                select(NotificationLog.threshold_hours).where(
+                    NotificationLog.feeding_id == last_feeding.id
+                )
+            ).all()
+        }
+        now = datetime.now()
+        for threshold in thresholds:
+            if threshold in sent_thresholds:
+                continue
+            threshold_time = last_feeding.timestamp + timedelta(hours=threshold)
+            if threshold_time > now:
+                next_notification = threshold_time
+                break
+
+    return {
+        "enabled": bool(topic),
+        "topic": topic,
+        "server": server,
+        "thresholds": thresholds,
+        "next_notification": next_notification,
+    }
+
 
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(
@@ -366,10 +407,30 @@ def settings_page(
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
+    notification = get_notification_status(session)
     return templates.TemplateResponse(
         "settings.html",
-        {"request": request, "config": config, "message": message},
+        {"request": request, "config": config, "message": message, "notification": notification},
     )
+
+
+@router.post("/settings/test-notify")
+async def test_notify(
+    request: Request,
+    session: Session = Depends(get_session),
+    _: Optional[str] = Depends(require_auth),
+):
+    if not notifier.topic:
+        message = "Notifications are not configured: NTFY_TOPIC is not set."
+        return RedirectResponse(
+            url=f"/settings?message={quote(message)}", status_code=303
+        )
+    ok = await notifier.send_test()
+    if ok:
+        message = "Test notification sent successfully."
+    else:
+        message = "Failed to send test notification. Check the server logs."
+    return RedirectResponse(url=f"/settings?message={quote(message)}", status_code=303)
 
 
 @router.post("/settings")
