@@ -16,6 +16,7 @@ services:
       DATABASE_URL: postgresql://feedings:feedings@db:5432/feedings
       AUTH_USERNAME: admin
       AUTH_PASSWORD: change-me
+      TZ: America/Chicago
     ports:
       - "8000:8000"
     depends_on:

@@ -2,10 +2,6 @@
 
 {% block content %}
 <section class="section">
-  {% include "partials/summary_cards.html" %}
-</section>
-
-<section class="section">
   <h2>Add Feeding</h2>
   <form class="feeding-form" id="add-feeding-form" hx-post="/feedings" hx-target="#feeding-list" hx-swap="outerHTML" hx-on::after-request="this.reset(); setLocalTimestamp();">
     <div class="form-row">

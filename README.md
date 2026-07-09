@@ -63,6 +63,11 @@ Railway uses the `Dockerfile`.
 | `DATABASE_URL` | Database connection URL | `sqlite:///./feedings.db` |
 | `AUTH_USERNAME` | Basic auth username | none (auth disabled) |
 | `AUTH_PASSWORD` | Basic auth password | none (auth disabled) |
+| `TZ` | Server timezone for period boundaries (e.g. `America/Chicago`) | `America/Chicago` |
+
+## Timezone
+
+Period boundaries are based on server time. When deploying to Railway, set `TZ` to your local timezone (e.g. `America/New_York`) so the 6AM cutoff and current period line up with your day.
 
 ## CSV export
 
