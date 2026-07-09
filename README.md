@@ -34,11 +34,15 @@ Open http://localhost:8000.
 
 ## Import existing CSV
 
+From the command line:
+
 ```bash
 python -m scripts.import_csv
 ```
 
-The script reads `feedings.csv` in the project root and seeds the target-volume rule (520 ml starting Jul 3, 2026, +40 ml every Wednesday). If feedings already exist in the database, the script skips the import.
+Or from the app: go to **Settings** and use the **Import CSV** upload form.
+
+The CSV should have columns `Timestamp, PO, NG`. If feedings already exist in the database, the import is skipped to avoid duplicates.
 
 ## Deploy to Railway
 

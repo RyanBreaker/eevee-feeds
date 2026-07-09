@@ -1,14 +1,16 @@
 from datetime import datetime, date, timedelta
 from io import StringIO
 from typing import Optional
+from urllib.parse import quote
 
 import csv
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from app.auth import require_auth
+from app.csv_import import import_feedings_from_text
 from app.database import get_session
 from app.models import Feeding, TargetConfig
 from app.period import get_period_label, get_period_start, get_target_volume
@@ -239,13 +241,14 @@ def delete_feeding(
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(
     request: Request,
+    message: Optional[str] = Query(None),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
     return templates.TemplateResponse(
         "settings.html",
-        {"request": request, "config": config},
+        {"request": request, "config": config, "message": message},
     )
 
 
@@ -268,6 +271,34 @@ def update_settings(
     session.add(config)
     session.commit()
     return RedirectResponse(url="/settings", status_code=303)
+
+
+@router.post("/settings/import")
+def import_csv_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    _: Optional[str] = Depends(require_auth),
+):
+    try:
+        content = file.file.read().decode("utf-8")
+        result = import_feedings_from_text(session, content, skip_existing=True)
+    except Exception as exc:
+        message = f"Import failed: {exc}"
+        return RedirectResponse(
+            url=f"/settings?message={quote(message)}",
+            status_code=303,
+        )
+
+    if result["skipped"]:
+        message = "Feedings already exist. No new rows imported."
+    else:
+        message = f"Imported {result['imported']} feedings."
+
+    return RedirectResponse(
+        url=f"/settings?message={quote(message)}",
+        status_code=303,
+    )
 
 
 @router.get("/export")

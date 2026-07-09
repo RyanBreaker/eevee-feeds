@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if message %}
+<section class="section alert">
+  {{ message }}
+</section>
+{% endif %}
+
+<section class="section">
+  <h2>Import CSV</h2>
+  <p class="help-text">
+    Upload a CSV with columns <code>Timestamp, PO, NG</code>. If feedings already exist, the import will be skipped to avoid duplicates.
+  </p>
+  <form method="post" action="/settings/import" enctype="multipart/form-data" class="settings-form">
+    <label>
+      CSV file
+      <input type="file" name="file" accept=".csv" required>
+    </label>
+    <button type="submit">Import</button>
+  </form>
+</section>
+
 <section class="section">
   <h2>Target Volume Rule</h2>
   <p class="help-text">
