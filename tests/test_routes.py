@@ -67,31 +67,7 @@ def test_export_csv(client):
     assert "30,10,40" in r.text
 
 
-def test_simple_test_notification(client, monkeypatch):
-    captured = []
-
-    def handler(request: httpx.Request):
-        captured.append({"content": request.content})
-        return httpx.Response(200, text="ok")
-
-    monkeypatch.setattr(notifier, "topic", "test-topic")
-    monkeypatch.setattr(
-        notifier,
-        "client",
-        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-    )
-
-    client.post("/login", data={"username": "admin", "password": "secret"})
-    r = client.post("/settings/test-notify", follow_redirects=False)
-    assert r.status_code == 303
-    assert "sent successfully" in unquote(r.headers["location"])
-
-    data = json.loads(captured[0]["content"])
-    assert data["title"] == "Test notification"
-    assert data["topic"] == "test-topic"
-
-
-def test_current_gap_test_notification(client, monkeypatch, test_engine):
+def test_simple_test_notification(client, monkeypatch, test_engine):
     captured = []
 
     def handler(request: httpx.Request):
@@ -115,12 +91,12 @@ def test_current_gap_test_notification(client, monkeypatch, test_engine):
     )
 
     client.post("/login", data={"username": "admin", "password": "secret"})
-    r = client.post("/settings/test-notify-current", follow_redirects=False)
+    r = client.post("/settings/test-notify", follow_redirects=False)
     assert r.status_code == 303
     assert "sent successfully" in unquote(r.headers["location"])
 
     data = json.loads(captured[0]["content"])
-    assert data["title"] == "5h 0m since last feed"
+    assert data["title"] == "🍼 5h 0m since last feed"
     assert data["priority"] == 4
     assert data["topic"] == "test-topic"
 

@@ -25,32 +25,7 @@ def test_parse_thresholds_invalid():
 
 
 @pytest.mark.asyncio
-async def test_send_test_payload(monkeypatch):
-    captured = []
-
-    def handler(request: httpx.Request):
-        captured.append({"url": str(request.url), "content": request.content})
-        return httpx.Response(200, text="ok")
-
-    monkeypatch.setattr(notifier, "topic", "test-topic")
-    monkeypatch.setattr(
-        notifier,
-        "client",
-        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-    )
-
-    ok = await notifier.send_test()
-    assert ok is True
-
-    data = json.loads(captured[0]["content"])
-    assert data["topic"] == "test-topic"
-    assert data["title"] == "Test notification"
-    assert data["priority"] == 3
-    assert captured[0]["url"] == "https://ntfy.sh/"
-
-
-@pytest.mark.asyncio
-async def test_send_test_current_gap_payload(monkeypatch, test_engine):
+async def test_send_test_payload(monkeypatch, test_engine):
     captured = []
 
     def handler(request: httpx.Request):
@@ -73,18 +48,18 @@ async def test_send_test_current_gap_payload(monkeypatch, test_engine):
         httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
 
-    ok = await notifier.send_test_current_gap()
+    ok = await notifier.send_test()
     assert ok is True
 
     data = json.loads(captured[0]["content"])
     assert data["topic"] == "test-topic"
-    assert data["title"] == "5h 0m since last feed"
+    assert data["title"] == "🍼 5h 0m since last feed"
     assert data["priority"] == 4
-    assert "🍼" in data["tags"]
+    assert captured[0]["url"] == "https://ntfy.sh/"
 
 
 @pytest.mark.asyncio
-async def test_send_test_current_gap_payload_under_threshold(monkeypatch, test_engine):
+async def test_send_test_payload_under_threshold(monkeypatch, test_engine):
     captured = []
 
     def handler(request: httpx.Request):
@@ -107,11 +82,11 @@ async def test_send_test_current_gap_payload_under_threshold(monkeypatch, test_e
         httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
 
-    ok = await notifier.send_test_current_gap()
+    ok = await notifier.send_test()
     assert ok is True
 
     data = json.loads(captured[0]["content"])
-    assert data["title"] == "30m since last feed"
+    assert data["title"] == "🍼 30m since last feed"
     assert data["priority"] == 3
 
 

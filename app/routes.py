@@ -433,35 +433,6 @@ async def test_notify(
     return RedirectResponse(url=f"/settings?message={quote(message)}", status_code=303)
 
 
-@router.post("/settings/test-notify-current")
-async def test_notify_current(
-    request: Request,
-    session: Session = Depends(get_session),
-    _: Optional[str] = Depends(require_auth),
-):
-    if not notifier.topic:
-        message = "Notifications are not configured: NTFY_TOPIC is not set."
-        return RedirectResponse(
-            url=f"/settings?message={quote(message)}", status_code=303
-        )
-
-    last_feeding = session.exec(
-        select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
-    ).first()
-    if not last_feeding:
-        message = "No feedings have been logged yet, so there is no gap to report."
-        return RedirectResponse(
-            url=f"/settings?message={quote(message)}", status_code=303
-        )
-
-    ok = await notifier.send_test_current_gap()
-    if ok:
-        message = "Current-gap test notification sent successfully."
-    else:
-        message = "Failed to send current-gap test notification. Check the server logs."
-    return RedirectResponse(url=f"/settings?message={quote(message)}", status_code=303)
-
-
 @router.post("/settings")
 def update_settings(
     request: Request,

@@ -152,13 +152,18 @@ class FeedingNotifier:
             payload["click"] = self.app_url
         return payload
 
-    async def _send_notification(self, feeding: Feeding, threshold: int) -> bool:
-        if not self.client:
+    async def _send_notification_for(
+        self,
+        feeding: Feeding,
+        since: timedelta,
+        crossed_thresholds: List[int],
+    ) -> bool:
+        if not self.client or not self.topic:
             return False
 
-        title = f"🍼 {threshold} hours since last feed"
+        title = f"🍼 {format_duration(since)} since last feed"
         body = self._body_for_feeding(feeding)
-        priority = self._priority([threshold])
+        priority = self._priority(crossed_thresholds)
         payload = self._build_payload(title, body, priority)
         url = f"{self.server}/"
 
@@ -171,51 +176,22 @@ class FeedingNotifier:
             logger.error("Failed to send ntfy notification: %s", exc)
             return False
 
-    async def send_test(self) -> bool:
-        if not self.client or not self.topic:
-            return False
-
-        payload = self._build_payload(
-            "Test notification",
-            "This is a test from the feedings app.",
-            3,
+    async def _send_notification(self, feeding: Feeding, threshold: int) -> bool:
+        return await self._send_notification_for(
+            feeding,
+            timedelta(hours=threshold),
+            [threshold],
         )
-        url = f"{self.server}/"
 
-        try:
-            response = await self.client.post(url, json=payload)
-            response.raise_for_status()
-            logger.info("Sent test ntfy notification")
-            return True
-        except Exception as exc:
-            logger.error("Failed to send test ntfy notification: %s", exc)
-            return False
-
-    async def send_test_current_gap(self) -> bool:
-        if not self.client or not self.topic:
-            return False
-
+    async def send_test(self) -> bool:
         feeding = await run_in_threadpool(self._get_last_feeding)
         if not feeding:
             return False
 
         now = datetime.now()
         gap = now - feeding.timestamp
-        title = f"{format_duration(gap)} since last feed"
-        body = self._body_for_feeding(feeding)
         crossed = [t for t in self.thresholds if gap >= timedelta(hours=t)]
-        priority = self._priority(crossed)
-        payload = self._build_payload(title, body, priority)
-        url = f"{self.server}/"
-
-        try:
-            response = await self.client.post(url, json=payload)
-            response.raise_for_status()
-            logger.info("Sent current-gap test ntfy notification: %s", title)
-            return True
-        except Exception as exc:
-            logger.error("Failed to send current-gap test ntfy notification: %s", exc)
-            return False
+        return await self._send_notification_for(feeding, gap, crossed)
 
 
 notifier = FeedingNotifier()
