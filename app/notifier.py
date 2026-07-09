@@ -129,17 +129,18 @@ class FeedingNotifier:
             session.add(log)
             session.commit()
 
-    async def _send_notification(self, feeding: Feeding, threshold: int) -> bool:
-        if not self.client:
-            return False
-
-        url = f"{self.server}/"
-        priority = 4 if threshold == self.thresholds[-1] else 3
-        title = f"🍼 {threshold} hours since last feed"
-        body = (
+    def _body_for_feeding(self, feeding: Feeding) -> str:
+        return (
             f"Last feeding: PO {feeding.po_amount} ml / NG {feeding.ng_amount} ml "
             f"at {feeding.timestamp.strftime('%I:%M %p')}."
         )
+
+    def _priority(self, crossed_thresholds: List[int]) -> int:
+        if crossed_thresholds and crossed_thresholds[-1] == self.thresholds[-1]:
+            return 4
+        return 3
+
+    def _build_payload(self, title: str, body: str, priority: int) -> dict:
         payload = {
             "topic": self.topic,
             "title": title,
@@ -149,6 +150,17 @@ class FeedingNotifier:
         }
         if self.app_url:
             payload["click"] = self.app_url
+        return payload
+
+    async def _send_notification(self, feeding: Feeding, threshold: int) -> bool:
+        if not self.client:
+            return False
+
+        title = f"🍼 {threshold} hours since last feed"
+        body = self._body_for_feeding(feeding)
+        priority = self._priority([threshold])
+        payload = self._build_payload(title, body, priority)
+        url = f"{self.server}/"
 
         try:
             response = await self.client.post(url, json=payload)
@@ -163,16 +175,12 @@ class FeedingNotifier:
         if not self.client or not self.topic:
             return False
 
+        payload = self._build_payload(
+            "Test notification",
+            "This is a test from the feedings app.",
+            3,
+        )
         url = f"{self.server}/"
-        payload = {
-            "topic": self.topic,
-            "title": "Test notification",
-            "message": "This is a test from the feedings app.",
-            "priority": 3,
-            "tags": ["🍼"],
-        }
-        if self.app_url:
-            payload["click"] = self.app_url
 
         try:
             response = await self.client.post(url, json=payload)
@@ -194,22 +202,11 @@ class FeedingNotifier:
         now = datetime.now()
         gap = now - feeding.timestamp
         title = f"{format_duration(gap)} since last feed"
-        body = (
-            f"Last feeding: PO {feeding.po_amount} ml / NG {feeding.ng_amount} ml "
-            f"at {feeding.timestamp.strftime('%I:%M %p')}."
-        )
+        body = self._body_for_feeding(feeding)
         crossed = [t for t in self.thresholds if gap >= timedelta(hours=t)]
-        priority = 4 if crossed and crossed[-1] == self.thresholds[-1] else 3
+        priority = self._priority(crossed)
+        payload = self._build_payload(title, body, priority)
         url = f"{self.server}/"
-        payload = {
-            "topic": self.topic,
-            "title": title,
-            "message": body,
-            "priority": priority,
-            "tags": ["🍼"],
-        }
-        if self.app_url:
-            payload["click"] = self.app_url
 
         try:
             response = await self.client.post(url, json=payload)
