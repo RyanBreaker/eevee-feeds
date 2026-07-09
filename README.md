@@ -19,7 +19,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m scripts.import_csv
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --log-config log_config.json
 ```
 
 Open http://localhost:8000.
