@@ -40,3 +40,12 @@ def get_target_volume(config, current_date: date) -> int:
         return config.start_volume
     increments = count_increment_days(config.start_date, current_date, config.increment_day)
     return config.start_volume + increments * config.increment
+
+
+def format_duration(td: timedelta) -> str:
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"

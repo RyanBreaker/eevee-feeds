@@ -7,16 +7,17 @@
       <th>PO</th>
       <th>NG</th>
       <th>Total</th>
+      <th>Gap</th>
       <th>Notes</th>
       <th></th>
     </tr>
   </thead>
   <tbody>
-    {% for feeding in feedings %}
+    {% for feeding, gap in feedings %}
     {% include "partials/feeding_row.html" %}
     {% else %}
     <tr>
-      <td colspan="6" class="empty">No feedings recorded for this period.</td>
+      <td colspan="7" class="empty">No feedings recorded for this period.</td>
     </tr>
     {% endfor %}
   </tbody>

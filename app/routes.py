@@ -13,10 +13,11 @@ from app.auth import require_auth
 from app.csv_import import import_feedings_from_text
 from app.database import get_session
 from app.models import Feeding, TargetConfig
-from app.period import get_period_label, get_period_start, get_target_volume
+from app.period import format_duration, get_period_label, get_period_start, get_target_volume
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+templates.env.filters["format_duration"] = format_duration
 
 
 def get_or_create_config(session: Session) -> TargetConfig:
@@ -48,14 +49,68 @@ def get_feedings_for_period(session: Session, period_start: datetime) -> list[Fe
     return list(session.exec(statement).all())
 
 
-def get_period_summary(session: Session, config: TargetConfig, period_start: datetime) -> dict:
+def get_feedings_with_gaps(session: Session, period_start: datetime) -> list[tuple[Feeding, Optional[timedelta]]]:
+    previous_feeding = session.exec(
+        select(Feeding)
+        .where(Feeding.timestamp < period_start)
+        .order_by(Feeding.timestamp.desc())
+        .limit(1)
+    ).first()
+
     feedings = get_feedings_for_period(session, period_start)
+    result = []
+    last_time = previous_feeding.timestamp if previous_feeding else None
+
+    for feeding in feedings:
+        gap = feeding.timestamp - last_time if last_time else None
+        result.append((feeding, gap))
+        last_time = feeding.timestamp
+
+    return result
+
+
+def get_feeding_gap(session: Session, feeding: Feeding) -> Optional[timedelta]:
+    period_start = get_period_start(feeding.timestamp)
+    previous_feeding = session.exec(
+        select(Feeding)
+        .where(Feeding.timestamp < feeding.timestamp, Feeding.timestamp >= period_start)
+        .order_by(Feeding.timestamp.desc())
+        .limit(1)
+    ).first()
+
+    if not previous_feeding:
+        previous_feeding = session.exec(
+            select(Feeding)
+            .where(Feeding.timestamp < period_start)
+            .order_by(Feeding.timestamp.desc())
+            .limit(1)
+        ).first()
+
+    if previous_feeding:
+        return feeding.timestamp - previous_feeding.timestamp
+    return None
+
+
+def get_period_summary(session: Session, config: TargetConfig, period_start: datetime) -> dict:
+    feedings_with_gaps = get_feedings_with_gaps(session, period_start)
+    feedings = [f for f, _ in feedings_with_gaps]
     po = sum(f.po_amount for f in feedings)
     ng = sum(f.ng_amount for f in feedings)
     total = po + ng
     target = get_target_volume(config, period_start.date())
     po_pct = (po / total * 100) if total > 0 else 0
     remaining = target - total
+
+    gaps = [gap for _, gap in feedings_with_gaps if gap]
+    avg_gap = None
+    if gaps:
+        avg_seconds = sum(gap.total_seconds() for gap in gaps) / len(gaps)
+        avg_gap = timedelta(seconds=avg_seconds)
+
+    time_since_last = None
+    if feedings and period_start == get_current_period_start():
+        time_since_last = datetime.now() - feedings[-1].timestamp
+
     return {
         "po": po,
         "ng": ng,
@@ -63,7 +118,9 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "target": target,
         "po_pct": round(po_pct, 1),
         "remaining": remaining,
-        "feedings": feedings,
+        "feedings": feedings_with_gaps,
+        "avg_gap": avg_gap,
+        "time_since_last": time_since_last,
     }
 
 
@@ -154,8 +211,8 @@ def create_feeding(
     session.commit()
 
     config = get_or_create_config(session)
-    current_period = get_current_period_start()
-    summary = get_period_summary(session, config, current_period)
+    feeding_period = get_period_start(feeding.timestamp)
+    summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
         "partials/feeding_list.html",
         {
@@ -176,9 +233,10 @@ def feeding_row(
     feeding = session.get(Feeding, feeding_id)
     if not feeding:
         raise HTTPException(status_code=404, detail="Feeding not found")
+    gap = get_feeding_gap(session, feeding)
     return templates.TemplateResponse(
         "partials/feeding_row.html",
-        {"request": request, "feeding": feeding},
+        {"request": request, "feeding": feeding, "gap": gap},
     )
 
 
@@ -227,11 +285,13 @@ def update_feeding(
     config = get_or_create_config(session)
     feeding_period = get_period_start(feeding.timestamp)
     summary = get_period_summary(session, config, feeding_period)
+    gap = get_feeding_gap(session, feeding)
     return templates.TemplateResponse(
         "partials/feeding_row_oob.html",
         {
             "request": request,
             "feeding": feeding,
+            "gap": gap,
             "summary": summary,
         },
     )
