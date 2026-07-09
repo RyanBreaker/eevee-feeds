@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.database import engine
 from app.models import Feeding, NotificationLog
+from app.period import format_duration
 
 logger = logging.getLogger("uvicorn")
 
@@ -180,6 +181,43 @@ class FeedingNotifier:
             return True
         except Exception as exc:
             logger.error("Failed to send test ntfy notification: %s", exc)
+            return False
+
+    async def send_test_current_gap(self) -> bool:
+        if not self.client or not self.topic:
+            return False
+
+        feeding = await run_in_threadpool(self._get_last_feeding)
+        if not feeding:
+            return False
+
+        now = datetime.now()
+        gap = now - feeding.timestamp
+        title = f"{format_duration(gap)} since last feed"
+        body = (
+            f"Last feeding: PO {feeding.po_amount} ml / NG {feeding.ng_amount} ml "
+            f"at {feeding.timestamp.strftime('%I:%M %p')}."
+        )
+        crossed = [t for t in self.thresholds if gap >= timedelta(hours=t)]
+        priority = 4 if crossed and crossed[-1] == self.thresholds[-1] else 3
+        url = f"{self.server}/"
+        payload = {
+            "topic": self.topic,
+            "title": title,
+            "message": body,
+            "priority": priority,
+            "tags": ["🍼"],
+        }
+        if self.app_url:
+            payload["click"] = self.app_url
+
+        try:
+            response = await self.client.post(url, json=payload)
+            response.raise_for_status()
+            logger.info("Sent current-gap test ntfy notification: %s", title)
+            return True
+        except Exception as exc:
+            logger.error("Failed to send current-gap test ntfy notification: %s", exc)
             return False
 
 
