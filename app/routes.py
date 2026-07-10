@@ -1,9 +1,7 @@
-import csv
 import math
 import os
 import secrets
 from datetime import date, datetime, time, timedelta
-from io import StringIO
 from typing import Optional
 from urllib.parse import quote
 
@@ -15,6 +13,7 @@ from sqlmodel import Session
 
 from app.auth import require_auth, verify_credentials
 from app.csv_import import import_feedings_from_text
+from app.csv_io import FeedingCsvWriter
 from app.database import get_session
 from app.models import Feeding, TargetConfig
 from app.notification_service import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notification_service
@@ -353,21 +352,8 @@ def export_csv(
     _: Optional[str] = Depends(require_auth),
 ):
     feedings = get_all_feedings(session)
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Timestamp", "PO", "NG", "Total", "Notes"])
-    for f in feedings:
-        writer.writerow(
-            [
-                f.timestamp.strftime("%a, %b %d, %Y %I:%M %p"),
-                f.po_amount,
-                f.ng_amount,
-                f.po_amount + f.ng_amount,
-                f.notes or "",
-            ]
-        )
-    content = output.getvalue()
-    output.close()
+    writer = FeedingCsvWriter()
+    content = writer.write_feedings(feedings)
     return Response(
         content=content,
         media_type="text/csv",

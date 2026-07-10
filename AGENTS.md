@@ -39,7 +39,8 @@ pytest -v
 - For notifier lifecycle/wrapper changes, add tests in `tests/test_notifier.py`.
 - For period/volume logic, add tests in `tests/test_period.py`.
 - For summary/chart logic, add tests in `tests/test_summary.py`.
-- For CSV import logic, add tests in `tests/test_csv_import.py`.
+- For CSV adapter/reader/writer logic, add tests in `tests/test_csv_io.py`.
+- For CSV import orchestration, add tests in `tests/test_csv_import.py`.
 
 ### Manual testing
 

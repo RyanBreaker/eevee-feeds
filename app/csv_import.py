@@ -1,49 +1,28 @@
-import csv
-from datetime import datetime
-from io import StringIO, TextIOWrapper
-from typing import Optional, TextIO
+from io import StringIO
+from typing import TextIO
 
 from sqlmodel import Session, select
 
-from app.models import Feeding, TargetConfig
+from app.csv_io import FeedingCsvReader
+from app.models import Feeding
+from app.repository import get_or_create_config
 
 
-def parse_timestamp(raw: str) -> datetime:
-    # Normalize non-breaking spaces that may appear in exported dates.
-    cleaned = raw.replace("\u202f", " ").replace("\xa0", " ")
-    return datetime.strptime(cleaned, "%a, %b %d, %Y %I:%M %p")
-
-
-def seed_config(session: Session) -> None:
-    existing = session.exec(select(TargetConfig)).first()
-    if existing:
-        return
-
-    config = TargetConfig(
-        start_date=datetime(2026, 7, 3).date(),
-        start_volume=520,
-        increment=40,
-        increment_day="Wednesday",
-    )
-    session.add(config)
-
-
-def import_feedings_from_csv(session: Session, file: TextIO, skip_existing: bool = True) -> dict:
+def import_feedings_from_csv(
+    session: Session, file: TextIO, skip_existing: bool = True
+) -> dict:
     """Import feedings from a CSV file. Returns a summary dict."""
-    seed_config(session)
+    get_or_create_config(session)
 
     if skip_existing:
         existing = session.exec(select(Feeding)).first()
         if existing is not None:
             return {"imported": 0, "skipped": True}
 
-    reader = csv.DictReader(file)
+    reader = FeedingCsvReader()
+    feedings = reader.read_feedings(file)
     count = 0
-    for row in reader:
-        timestamp = parse_timestamp(row["Timestamp"])
-        po = int(row["PO"])
-        ng = int(row["NG"])
-        feeding = Feeding(timestamp=timestamp, po_amount=po, ng_amount=ng)
+    for feeding in feedings:
         session.add(feeding)
         count += 1
 
