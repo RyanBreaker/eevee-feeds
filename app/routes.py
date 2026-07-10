@@ -1,4 +1,5 @@
 import csv
+import math
 import os
 import secrets
 from datetime import date, datetime, time, timedelta
@@ -257,6 +258,18 @@ def summary_cards(
         "partials/summary_cards.html",
         {"request": request, "summary": summary},
     )
+
+
+@router.get("/api/feed-target")
+def feed_target(
+    target_date: date = Query(..., alias="date"),
+    session: Session = Depends(get_session),
+    _: Optional[str] = Depends(require_auth),
+):
+    config = get_or_create_config(session)
+    target = get_target_volume(config, target_date)
+    per_feed = math.ceil(target / 8)
+    return {"target": target, "per_feed": per_feed}
 
 
 @router.post("/feedings", response_class=HTMLResponse)

@@ -240,3 +240,33 @@ def test_chart_data_excludes_empty_periods(test_engine):
     assert empty_day["po_pct"] is None
     assert empty_day["po_trend"] is None
     assert empty_day["target"] is not None
+
+
+def test_feed_target_requires_auth(client):
+    r = client.get("/api/feed-target?date=2026-07-09", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "/login"
+
+
+def test_feed_target_returns_target_and_per_feed(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/api/feed-target?date=2026-07-03")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["target"] == 520
+    assert data["per_feed"] == 65
+
+
+def test_feed_target_rounds_up(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+        config.start_volume = 550
+        session.add(config)
+        session.commit()
+
+    r = client.get("/api/feed-target?date=2026-07-03")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["target"] == 550
+    assert data["per_feed"] == 69

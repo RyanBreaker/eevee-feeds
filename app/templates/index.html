@@ -29,12 +29,16 @@
         <input type="datetime-local" name="timestamp" required>
       </label>
       <label>
-        PO / by mouth or bottle (ml)
-        <input type="number" name="po_amount" min="0" required>
+        Total per feed (ml)
+        <input type="number" name="per_feed_total" min="0" step="1" readonly>
       </label>
       <label>
         NG / by tube (ml)
-        <input type="number" name="ng_amount" min="0" required>
+        <input type="number" name="ng_amount" min="0" step="1" required>
+      </label>
+      <label>
+        PO / by mouth or bottle (ml)
+        <input type="number" name="po_amount" min="0" step="1" required>
       </label>
       <label>
         Notes
@@ -65,6 +69,7 @@
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = new Date(now.getTime() - offset).toISOString().slice(0, 16);
     input.value = localISOTime;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
   }
   setLocalTimestamp();
 

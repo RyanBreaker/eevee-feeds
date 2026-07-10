@@ -186,6 +186,16 @@ select {
   margin-top: 0.25rem;
 }
 
+input[readonly] {
+  background: var(--bg);
+  color: var(--muted);
+}
+
+input.invalid {
+  border-color: var(--danger);
+  outline: 1px solid var(--danger);
+}
+
 button, .button {
   display: inline-block;
   background: var(--primary);
