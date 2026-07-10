@@ -1,50 +1,60 @@
 import asyncio
 import logging
-import os
-from datetime import datetime, timedelta
-from typing import List, Optional
+from datetime import datetime
+from typing import Callable, Optional
 
 import httpx
-from sqlmodel import Session, select
-from starlette.concurrency import run_in_threadpool
+from sqlmodel import Session
 
-from app.database import engine
-from app.models import Feeding, NotificationLog
-from app.period import format_duration
+from app.notification_service import NotificationService
 
 logger = logging.getLogger("uvicorn")
 
-DEFAULT_THRESHOLDS = [2, 3, 4]
-DEFAULT_SERVER = "https://ntfy.sh"
+
+def _session_factory() -> Session:
+    from app.database import engine
+
+    return Session(engine)
 
 
 class FeedingNotifier:
-    def __init__(self):
-        self.topic = os.getenv("NTFY_TOPIC")
-        self.server = (os.getenv("NTFY_SERVER") or DEFAULT_SERVER).rstrip("/")
-        self.thresholds = self._parse_thresholds(os.getenv("NTFY_THRESHOLDS"))
-        self.app_url = os.getenv("APP_URL")
+    def __init__(self, session_factory: Callable[[], Session]):
+        self.service = NotificationService(session_factory)
         self.client: Optional[httpx.AsyncClient] = None
         self.task: Optional[asyncio.Task] = None
         self.app_start_time: Optional[datetime] = None
 
-    @staticmethod
-    def _parse_thresholds(raw: Optional[str]) -> List[int]:
-        if not raw:
-            return DEFAULT_THRESHOLDS
-        try:
-            values = [int(part.strip()) for part in raw.split(",") if part.strip()]
-            values = sorted(set(value for value in values if value > 0))
-            if values:
-                return values
-        except (ValueError, TypeError) as exc:
-            logger.warning(
-                "Invalid NTFY_THRESHOLDS=%r, using default %s: %s",
-                raw,
-                DEFAULT_THRESHOLDS,
-                exc,
-            )
-        return DEFAULT_THRESHOLDS
+    @property
+    def topic(self) -> Optional[str]:
+        return self.service.topic
+
+    @topic.setter
+    def topic(self, value: Optional[str]) -> None:
+        self.service.topic = value
+
+    @property
+    def server(self) -> str:
+        return self.service.server
+
+    @server.setter
+    def server(self, value: str) -> None:
+        self.service.server = value
+
+    @property
+    def app_url(self) -> Optional[str]:
+        return self.service.app_url
+
+    @app_url.setter
+    def app_url(self, value: Optional[str]) -> None:
+        self.service.app_url = value
+
+    @property
+    def thresholds(self) -> list[int]:
+        return self.service.thresholds
+
+    @thresholds.setter
+    def thresholds(self, value: list[int]) -> None:
+        self.service.thresholds = value
 
     def start(self) -> None:
         if not self.topic:
@@ -79,119 +89,14 @@ class FeedingNotifier:
             await self._check()
 
     async def _check(self) -> None:
-        try:
-            last_feeding = await run_in_threadpool(self._get_last_feeding)
-            if not last_feeding:
-                logger.debug("No feedings logged yet; skipping notification check")
-                return
-
-            now = datetime.now()
-            for threshold in self.thresholds:
-                threshold_time = last_feeding.timestamp + timedelta(hours=threshold)
-                if self.app_start_time and threshold_time < self.app_start_time:
-                    continue
-                if now < threshold_time:
-                    continue
-                already_sent = await run_in_threadpool(
-                    self._is_sent, last_feeding.id, threshold
-                )
-                if already_sent:
-                    continue
-                ok = await self._send_notification(last_feeding, threshold)
-                if ok:
-                    await run_in_threadpool(self._record_sent, last_feeding.id, threshold)
-        except Exception:
-            logger.exception("Error in notifier check")
-
-    def _get_last_feeding(self) -> Optional[Feeding]:
-        with Session(engine) as session:
-            return session.exec(
-                select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
-            ).first()
-
-    def _is_sent(self, feeding_id: int, threshold: int) -> bool:
-        with Session(engine) as session:
-            log = session.exec(
-                select(NotificationLog).where(
-                    NotificationLog.feeding_id == feeding_id,
-                    NotificationLog.threshold_hours == threshold,
-                )
-            ).first()
-            return log is not None
-
-    def _record_sent(self, feeding_id: int, threshold: int) -> None:
-        with Session(engine) as session:
-            log = NotificationLog(
-                feeding_id=feeding_id,
-                threshold_hours=threshold,
-                sent_at=datetime.utcnow(),
+        with self.service.session_factory() as session:
+            await self.service.run_check(
+                session, self.client, datetime.now(), self.app_start_time
             )
-            session.add(log)
-            session.commit()
-
-    def _body_for_feeding(self, feeding: Feeding) -> str:
-        return (
-            f"Last feeding: PO {feeding.po_amount} ml / NG {feeding.ng_amount} ml "
-            f"at {feeding.timestamp.strftime('%I:%M %p')}."
-        )
-
-    def _priority(self, crossed_thresholds: List[int]) -> int:
-        if crossed_thresholds and crossed_thresholds[-1] == self.thresholds[-1]:
-            return 4
-        return 3
-
-    def _build_payload(self, title: str, body: str, priority: int) -> dict:
-        payload = {
-            "topic": self.topic,
-            "title": title,
-            "message": body,
-            "priority": priority,
-            "tags": ["🍼"],
-        }
-        if self.app_url:
-            payload["click"] = self.app_url
-        return payload
-
-    async def _send_notification_for(
-        self,
-        feeding: Feeding,
-        since: timedelta,
-        crossed_thresholds: List[int],
-    ) -> bool:
-        if not self.client or not self.topic:
-            return False
-
-        title = f"🍼 {format_duration(since)} since last feed"
-        body = self._body_for_feeding(feeding)
-        priority = self._priority(crossed_thresholds)
-        payload = self._build_payload(title, body, priority)
-        url = f"{self.server}/"
-
-        try:
-            response = await self.client.post(url, json=payload)
-            response.raise_for_status()
-            logger.info("Sent ntfy notification: %s", title)
-            return True
-        except Exception as exc:
-            logger.error("Failed to send ntfy notification: %s", exc)
-            return False
-
-    async def _send_notification(self, feeding: Feeding, threshold: int) -> bool:
-        return await self._send_notification_for(
-            feeding,
-            timedelta(hours=threshold),
-            [threshold],
-        )
 
     async def send_test(self) -> bool:
-        feeding = await run_in_threadpool(self._get_last_feeding)
-        if not feeding:
-            return False
-
-        now = datetime.now()
-        gap = now - feeding.timestamp
-        crossed = [t for t in self.thresholds if gap >= timedelta(hours=t)]
-        return await self._send_notification_for(feeding, gap, crossed)
+        with self.service.session_factory() as session:
+            return await self.service.send_test(session, self.client)
 
 
-notifier = FeedingNotifier()
+notifier = FeedingNotifier(_session_factory)

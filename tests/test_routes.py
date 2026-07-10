@@ -8,7 +8,7 @@ import httpx
 from sqlmodel import Session
 
 from app.models import Feeding, NotificationLog
-from app.notifier import notifier
+from app.notification_service import notification_service
 from app.repository import get_or_create_config
 from app.summary import get_chart_data
 
@@ -87,12 +87,13 @@ def test_simple_test_notification(client, monkeypatch, test_engine):
         session.add(feeding)
         session.commit()
 
-    monkeypatch.setattr(notifier, "topic", "test-topic")
-    monkeypatch.setattr(
-        notifier,
-        "client",
-        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
-    )
+    mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    def mock_async_client(*args, **kwargs):
+        return mock_client
+
+    monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
+    monkeypatch.setattr(notification_service, "topic", "test-topic")
 
     client.post("/login", data={"username": "admin", "password": "secret"})
     r = client.post("/settings/test-notify", follow_redirects=False)
@@ -106,7 +107,7 @@ def test_simple_test_notification(client, monkeypatch, test_engine):
 
 
 def test_settings_page_with_notification_log(client, test_engine, monkeypatch):
-    monkeypatch.setenv("NTFY_TOPIC", "test-topic")
+    monkeypatch.setattr(notification_service, "topic", "test-topic")
     client.post("/login", data={"username": "admin", "password": "secret"})
 
     with Session(test_engine) as session:

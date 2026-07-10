@@ -32,7 +32,6 @@ def test_engine():
 @pytest.fixture(autouse=True)
 def patch_engines(test_engine, monkeypatch):
     monkeypatch.setattr(app.database, "engine", test_engine)
-    monkeypatch.setattr(app.notifier, "engine", test_engine)
 
 
 @pytest.fixture(autouse=True)

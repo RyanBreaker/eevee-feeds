@@ -7,16 +7,17 @@ from io import StringIO
 from typing import Optional
 from urllib.parse import quote
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.auth import require_auth, verify_credentials
 from app.csv_import import import_feedings_from_text
 from app.database import get_session
-from app.models import Feeding, NotificationLog, TargetConfig
-from app.notifier import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notifier
+from app.models import Feeding, TargetConfig
+from app.notification_service import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notification_service
 from app.period import format_duration, format_time, get_period_start, get_target_volume
 from app.repository import (
     get_all_feedings,
@@ -261,44 +262,6 @@ def delete_feeding(
         },
     )
 
-def get_notification_status(session: Session) -> dict:
-    topic = os.getenv("NTFY_TOPIC")
-    server = (os.getenv("NTFY_SERVER") or DEFAULT_SERVER).rstrip("/")
-    raw_thresholds = os.getenv("NTFY_THRESHOLDS")
-    thresholds = (
-        notifier._parse_thresholds(raw_thresholds)
-        if raw_thresholds
-        else DEFAULT_THRESHOLDS
-    )
-    last_feeding = get_last_feeding(session)
-
-    next_notification = None
-    if topic and last_feeding:
-        sent_thresholds = {
-            row
-            for row in session.exec(
-                select(NotificationLog.threshold_hours).where(
-                    NotificationLog.feeding_id == last_feeding.id
-                )
-            ).all()
-        }
-        now = datetime.now()
-        for threshold in thresholds:
-            if threshold in sent_thresholds:
-                continue
-            threshold_time = last_feeding.timestamp + timedelta(hours=threshold)
-            if threshold_time > now:
-                next_notification = threshold_time
-                break
-
-    return {
-        "enabled": bool(topic),
-        "topic": topic,
-        "server": server,
-        "thresholds": thresholds,
-        "next_notification": next_notification,
-    }
-
 
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(
@@ -308,7 +271,7 @@ def settings_page(
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
-    notification = get_notification_status(session)
+    notification = notification_service.get_status(session)
     return templates.TemplateResponse(
         "settings.html",
         {"request": request, "config": config, "message": message, "notification": notification},
@@ -321,12 +284,13 @@ async def test_notify(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    if not notifier.topic:
+    if not notification_service.topic:
         message = "Notifications are not configured: NTFY_TOPIC is not set."
         return RedirectResponse(
             url=f"/settings?message={quote(message)}", status_code=303
         )
-    ok = await notifier.send_test()
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        ok = await notification_service.send_test(session, client)
     if ok:
         message = "Test notification sent successfully."
     else:

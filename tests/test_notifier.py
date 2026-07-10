@@ -6,22 +6,19 @@ import pytest
 from sqlmodel import Session
 
 from app.models import Feeding
-from app.notifier import DEFAULT_THRESHOLDS, FeedingNotifier, notifier
+from app.notifier import FeedingNotifier, notifier
 
 
-def test_parse_thresholds_default():
-    n = FeedingNotifier()
-    assert n._parse_thresholds(None) == DEFAULT_THRESHOLDS
+def test_notifier_properties_delegate_to_service():
+    notifier.topic = "test-topic"
+    notifier.server = "https://example.com"
+    notifier.app_url = "https://app.example.com"
+    notifier.thresholds = [1, 2]
 
-
-def test_parse_thresholds_custom():
-    n = FeedingNotifier()
-    assert n._parse_thresholds("4, 2, 2") == [2, 4]
-
-
-def test_parse_thresholds_invalid():
-    n = FeedingNotifier()
-    assert n._parse_thresholds("not-a-number") == [2, 3, 4]
+    assert notifier.service.topic == "test-topic"
+    assert notifier.service.server == "https://example.com"
+    assert notifier.service.app_url == "https://app.example.com"
+    assert notifier.service.thresholds == [1, 2]
 
 
 @pytest.mark.asyncio
@@ -90,41 +87,28 @@ async def test_send_test_payload_under_threshold(monkeypatch, test_engine):
     assert data["priority"] == 3
 
 
-def test_body_for_feeding():
-    feeding = Feeding(
-        timestamp=datetime(2026, 7, 9, 12, 0),
-        po_amount=30,
-        ng_amount=10,
-    )
-    body = notifier._body_for_feeding(feeding)
-    assert "PO 30 ml" in body
-    assert "NG 10 ml" in body
-    assert "12:00 PM" in body
-
-
-def test_priority():
-    n = FeedingNotifier()
-    assert n._priority([]) == 3
-    assert n._priority([2]) == 3
-    assert n._priority([2, 3]) == 3
-    assert n._priority([2, 3, 4]) == 4
-
-
-def test_build_payload(monkeypatch):
+@pytest.mark.asyncio
+async def test_notifier_start_stop_with_topic(monkeypatch):
     monkeypatch.setattr(notifier, "topic", "test-topic")
-    monkeypatch.setattr(notifier, "app_url", None)
-    payload = notifier._build_payload("Title", "Body", 3)
-    assert payload == {
-        "topic": "test-topic",
-        "title": "Title",
-        "message": "Body",
-        "priority": 3,
-        "tags": ["🍼"],
-    }
+    monkeypatch.setattr(notifier, "client", None)
+    monkeypatch.setattr(notifier, "task", None)
+    monkeypatch.setattr(notifier, "app_start_time", None)
+
+    notifier.start()
+    assert notifier.task is not None
+    assert notifier.client is not None
+
+    await notifier.stop()
+    assert notifier.task is None or notifier.task.done()
 
 
-def test_build_payload_with_app_url(monkeypatch):
-    monkeypatch.setattr(notifier, "topic", "test-topic")
-    monkeypatch.setattr(notifier, "app_url", "https://example.com")
-    payload = notifier._build_payload("Title", "Body", 4)
-    assert payload["click"] == "https://example.com"
+@pytest.mark.asyncio
+async def test_notifier_start_no_topic(monkeypatch):
+    monkeypatch.setattr(notifier, "topic", None)
+    monkeypatch.setattr(notifier, "client", None)
+    monkeypatch.setattr(notifier, "task", None)
+    monkeypatch.setattr(notifier, "app_start_time", None)
+
+    notifier.start()
+    assert notifier.task is None
+    assert notifier.client is None

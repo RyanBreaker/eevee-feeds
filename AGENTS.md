@@ -29,13 +29,14 @@ pytest -v
 - Unit tests for pure logic live in `tests/test_*.py`.
 - Integration tests use the `client` fixture from `tests/conftest.py`, which is a FastAPI `TestClient` backed by a fresh in-memory SQLite database per test.
 - The global notifier is reset between tests so ntfy background tasks do not leak state.
-- To test ntfy calls, mock the `httpx` client and set `notifier.topic` in the test.
+- To test ntfy calls, mock the `httpx` client and set `notification_service.topic` (or `notifier.topic`) in the test.
 
 ### When to add or update a test
 
 - Add or update a test when you fix a bug, add a feature, or change behavior.
 - For route changes, add integration tests in `tests/test_routes.py`.
-- For notifier/message formatting changes, add tests in `tests/test_notifier.py`.
+- For notification service logic, add tests in `tests/test_notification_service.py`.
+- For notifier lifecycle/wrapper changes, add tests in `tests/test_notifier.py`.
 - For period/volume logic, add tests in `tests/test_period.py`.
 - For summary/chart logic, add tests in `tests/test_summary.py`.
 - For CSV import logic, add tests in `tests/test_csv_import.py`.
