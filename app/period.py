@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta, date
+from typing import Sequence
 
 
 def get_period_start(timestamp: datetime) -> datetime:
@@ -49,6 +50,23 @@ def format_time(dt: datetime) -> str:
     if hour_12 == 0:
         hour_12 = 12
     return f"{hour_12}:{dt.strftime('%M')}{am_pm}"
+
+
+def linear_trend(values: Sequence[float]) -> list[float]:
+    n = len(values)
+    if n == 0:
+        return []
+    x = list(range(n))
+    sum_x = sum(x)
+    sum_y = sum(values)
+    sum_xy = sum(xi * yi for xi, yi in zip(x, values))
+    sum_x2 = sum(xi * xi for xi in x)
+    denominator = n * sum_x2 - sum_x * sum_x
+    if denominator == 0:
+        return [sum_y / n] * n
+    slope = (n * sum_xy - sum_x * sum_y) / denominator
+    intercept = (sum_y - slope * sum_x) / n
+    return [slope * xi + intercept for xi in x]
 
 
 def format_duration(td: timedelta) -> str:

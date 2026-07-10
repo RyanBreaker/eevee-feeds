@@ -16,7 +16,7 @@ from app.csv_import import import_feedings_from_text
 from app.database import get_session
 from app.models import Feeding, NotificationLog, TargetConfig
 from app.notifier import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notifier
-from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume
+from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume, linear_trend
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -157,6 +157,11 @@ def get_chart_data(session: Session, config: TargetConfig, end_period: datetime)
                 "po_pct": summary["po_pct"],
             }
         )
+
+    po_trend = linear_trend([p["po_pct"] for p in periods])
+    for period, trend in zip(periods, po_trend):
+        period["po_trend"] = round(trend, 1)
+
     return periods
 
 

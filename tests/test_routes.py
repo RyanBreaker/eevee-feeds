@@ -197,3 +197,20 @@ def test_next_feeding_window_on_today_page(client):
     assert response.status_code == 200
     assert "Next feeding window" in response.text
     assert f"{format_time(window_start)}-{format_time(window_end)}" in response.text
+
+
+def test_index_includes_po_trend(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert '"po_trend"' in response.text
+    assert "PO % Trend" in response.text

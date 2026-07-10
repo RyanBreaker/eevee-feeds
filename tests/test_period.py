@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 
 from app.models import TargetConfig
-from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume
+from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume, linear_trend
 
 
 def test_format_duration_minutes_only():
@@ -66,3 +66,19 @@ def test_format_time_midnight():
 
 def test_format_time_padded_minutes():
     assert format_time(datetime(2026, 7, 9, 15, 5)) == "3:05PM"
+
+
+def test_linear_trend_increasing():
+    values = [0, 1, 2, 3, 4]
+    trend = linear_trend(values)
+    assert trend[0] == 0
+    assert trend[-1] == 4
+
+
+def test_linear_trend_flat():
+    values = [5, 5, 5, 5]
+    assert linear_trend(values) == [5, 5, 5, 5]
+
+
+def test_linear_trend_empty():
+    assert linear_trend([]) == []
