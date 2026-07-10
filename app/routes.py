@@ -18,6 +18,15 @@ from app.database import get_session
 from app.models import Feeding, NotificationLog, TargetConfig
 from app.notifier import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notifier
 from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume, linear_trend
+from app.repository import (
+    get_all_feedings,
+    get_feeding_by_id,
+    get_feeding_gap,
+    get_feedings_for_period,
+    get_feedings_with_gaps,
+    get_last_feeding,
+    get_or_create_config,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -25,75 +34,15 @@ templates.env.filters["format_duration"] = format_duration
 templates.env.filters["format_time"] = format_time
 
 
-def get_or_create_config(session: Session) -> TargetConfig:
-    config = session.exec(select(TargetConfig)).first()
-    if not config:
-        config = TargetConfig(
-            start_date=date(2026, 7, 3),
-            start_volume=520,
-            increment=40,
-            increment_day="Wednesday",
-        )
-        session.add(config)
-        session.commit()
-        session.refresh(config)
-    return config
-
-
 def get_current_period_start() -> datetime:
     return get_period_start(datetime.now())
 
 
-def get_feedings_for_period(session: Session, period_start: datetime) -> list[Feeding]:
-    next_period_start = period_start + timedelta(days=1)
-    statement = (
-        select(Feeding)
-        .where(Feeding.timestamp >= period_start, Feeding.timestamp < next_period_start)
-        .order_by(Feeding.timestamp)
-    )
-    return list(session.exec(statement).all())
-
-
-def get_feedings_with_gaps(session: Session, period_start: datetime) -> list[tuple[Feeding, Optional[timedelta]]]:
-    previous_feeding = session.exec(
-        select(Feeding)
-        .where(Feeding.timestamp < period_start)
-        .order_by(Feeding.timestamp.desc())
-        .limit(1)
-    ).first()
-
-    feedings = get_feedings_for_period(session, period_start)
-    result = []
-    last_time = previous_feeding.timestamp if previous_feeding else None
-
-    for feeding in feedings:
-        gap = feeding.timestamp - last_time if last_time else None
-        result.append((feeding, gap))
-        last_time = feeding.timestamp
-
-    return result
-
-
-def get_feeding_gap(session: Session, feeding: Feeding) -> Optional[timedelta]:
-    period_start = get_period_start(feeding.timestamp)
-    previous_feeding = session.exec(
-        select(Feeding)
-        .where(Feeding.timestamp < feeding.timestamp, Feeding.timestamp >= period_start)
-        .order_by(Feeding.timestamp.desc())
-        .limit(1)
-    ).first()
-
-    if not previous_feeding:
-        previous_feeding = session.exec(
-            select(Feeding)
-            .where(Feeding.timestamp < period_start)
-            .order_by(Feeding.timestamp.desc())
-            .limit(1)
-        ).first()
-
-    if previous_feeding:
-        return feeding.timestamp - previous_feeding.timestamp
-    return None
+def get_feeding_or_404(session: Session, feeding_id: int) -> Feeding:
+    feeding = get_feeding_by_id(session, feeding_id)
+    if not feeding:
+        raise HTTPException(status_code=404, detail="Feeding not found")
+    return feeding
 
 
 def get_period_summary(session: Session, config: TargetConfig, period_start: datetime) -> dict:
@@ -115,9 +64,7 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     time_since_last = None
     next_feeding_window = None
     if period_start == get_current_period_start():
-        last_feeding = session.exec(
-            select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
-        ).first()
+        last_feeding = get_last_feeding(session)
         if last_feeding:
             time_since_last = datetime.now() - last_feeding.timestamp
             next_feeding_window = (
@@ -314,9 +261,7 @@ def feeding_row(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    feeding = session.get(Feeding, feeding_id)
-    if not feeding:
-        raise HTTPException(status_code=404, detail="Feeding not found")
+    feeding = get_feeding_or_404(session, feeding_id)
     gap = get_feeding_gap(session, feeding)
     return templates.TemplateResponse(
         "partials/feeding_row.html",
@@ -331,9 +276,7 @@ def edit_feeding_form(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    feeding = session.get(Feeding, feeding_id)
-    if not feeding:
-        raise HTTPException(status_code=404, detail="Feeding not found")
+    feeding = get_feeding_or_404(session, feeding_id)
     return templates.TemplateResponse(
         "partials/feeding_edit_row.html",
         {"request": request, "feeding": feeding},
@@ -354,9 +297,7 @@ def update_feeding(
     if timestamp > datetime.now():
         raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
 
-    feeding = session.get(Feeding, feeding_id)
-    if not feeding:
-        raise HTTPException(status_code=404, detail="Feeding not found")
+    feeding = get_feeding_or_404(session, feeding_id)
 
     feeding.timestamp = timestamp
     feeding.po_amount = po_amount
@@ -386,9 +327,7 @@ def delete_feeding(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    feeding = session.get(Feeding, feeding_id)
-    if not feeding:
-        raise HTTPException(status_code=404, detail="Feeding not found")
+    feeding = get_feeding_or_404(session, feeding_id)
     feeding_period = get_period_start(feeding.timestamp)
     session.delete(feeding)
     session.commit()
@@ -413,9 +352,7 @@ def get_notification_status(session: Session) -> dict:
         if raw_thresholds
         else DEFAULT_THRESHOLDS
     )
-    last_feeding = session.exec(
-        select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
-    ).first()
+    last_feeding = get_last_feeding(session)
 
     next_notification = None
     if topic and last_feeding:
@@ -533,7 +470,7 @@ def export_csv(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    feedings = list(session.exec(select(Feeding).order_by(Feeding.timestamp)).all())
+    feedings = get_all_feedings(session)
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(["Timestamp", "PO", "NG", "Total", "Notes"])
