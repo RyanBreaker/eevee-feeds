@@ -1,5 +1,7 @@
 import json
 from datetime import datetime, timedelta
+
+from app.period import format_time
 from urllib.parse import unquote
 
 import httpx
@@ -121,3 +123,25 @@ def test_settings_page_with_notification_log(client, test_engine, monkeypatch):
     response = client.get("/settings")
     assert response.status_code == 200
     assert "test-topic" in response.text
+
+
+def test_next_feeding_window_on_today_page(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    feeding_time = datetime.now().replace(second=0, microsecond=0) - timedelta(hours=3)
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": feeding_time.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+
+    window_start = feeding_time + timedelta(hours=2)
+    window_end = feeding_time + timedelta(hours=4)
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Next feeding window" in response.text
+    assert f"{format_time(window_start)}-{format_time(window_end)}" in response.text

@@ -16,11 +16,12 @@ from app.csv_import import import_feedings_from_text
 from app.database import get_session
 from app.models import Feeding, NotificationLog, TargetConfig
 from app.notifier import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notifier
-from app.period import format_duration, get_period_label, get_period_start, get_target_volume
+from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 templates.env.filters["format_duration"] = format_duration
+templates.env.filters["format_time"] = format_time
 
 
 def get_or_create_config(session: Session) -> TargetConfig:
@@ -111,12 +112,17 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         avg_gap = timedelta(seconds=avg_seconds)
 
     time_since_last = None
+    next_feeding_window = None
     if period_start == get_current_period_start():
         last_feeding = session.exec(
             select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
         ).first()
         if last_feeding:
             time_since_last = datetime.now() - last_feeding.timestamp
+            next_feeding_window = (
+                last_feeding.timestamp + timedelta(hours=2),
+                last_feeding.timestamp + timedelta(hours=4),
+            )
 
     return {
         "po": po,
@@ -128,6 +134,7 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "feedings": feedings_with_gaps,
         "avg_gap": avg_gap,
         "time_since_last": time_since_last,
+        "next_feeding_window": next_feeding_window,
     }
 
 

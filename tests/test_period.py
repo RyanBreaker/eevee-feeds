@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 
 from app.models import TargetConfig
-from app.period import format_duration, get_period_label, get_period_start, get_target_volume
+from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume
 
 
 def test_format_duration_minutes_only():
@@ -46,3 +46,23 @@ def test_get_target_volume():
     assert get_target_volume(config, date(2026, 7, 3)) == 520
     assert get_target_volume(config, date(2026, 7, 9)) == 560
     assert get_target_volume(config, date(2026, 7, 16)) == 600
+
+
+def test_format_time_am():
+    assert format_time(datetime(2026, 7, 9, 5, 35)) == "5:35AM"
+
+
+def test_format_time_pm():
+    assert format_time(datetime(2026, 7, 9, 15, 35)) == "3:35PM"
+
+
+def test_format_time_noon():
+    assert format_time(datetime(2026, 7, 9, 12, 0)) == "12:00PM"
+
+
+def test_format_time_midnight():
+    assert format_time(datetime(2026, 7, 9, 0, 0)) == "12:00AM"
+
+
+def test_format_time_padded_minutes():
+    assert format_time(datetime(2026, 7, 9, 15, 5)) == "3:05PM"

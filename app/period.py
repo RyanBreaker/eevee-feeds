@@ -42,6 +42,15 @@ def get_target_volume(config, current_date: date) -> int:
     return config.start_volume + increments * config.increment
 
 
+def format_time(dt: datetime) -> str:
+    hour = dt.hour
+    am_pm = "AM" if hour < 12 else "PM"
+    hour_12 = hour % 12
+    if hour_12 == 0:
+        hour_12 = 12
+    return f"{hour_12}:{dt.strftime('%M')}{am_pm}"
+
+
 def format_duration(td: timedelta) -> str:
     total_seconds = int(td.total_seconds())
     hours = total_seconds // 3600
