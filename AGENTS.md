@@ -44,3 +44,17 @@ pytest -v
 Avoid manual testing as a substitute for automated tests. Only run manual checks for one-off verification that cannot be easily automated (for example, verifying idempotent database connection behavior in a specific environment).
 
 If you do run a manual check, briefly note why it was needed and whether an automated test should replace it later.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live as GitHub issues. Use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo. Read `CONTEXT.md` at the repo root and `docs/adr/` before exploring. See `docs/agents/domain.md`.
