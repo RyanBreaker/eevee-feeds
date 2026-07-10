@@ -19,22 +19,25 @@ function initFeedingForm(form) {
     }
   }
 
-  function updatePO() {
+  function updateOtherAmount(source, target) {
     const total = parseInt(totalInput.value, 10) || 0;
-    const ng = parseInt(ngInput.value, 10) || 0;
-    if (ng > total) {
-      poInput.value = 0;
-      ngInput.classList.add('invalid');
+    const sourceValue = parseInt(source.value, 10) || 0;
+    if (sourceValue > total) {
+      target.value = 0;
+      source.classList.add('invalid');
     } else {
-      poInput.value = Math.ceil(total - ng);
-      ngInput.classList.remove('invalid');
+      target.value = Math.ceil(total - sourceValue);
+      source.classList.remove('invalid');
     }
+    target.classList.remove('invalid');
   }
 
   timestampInput.addEventListener('change', updateTotalFromDate);
-  ngInput.addEventListener('input', updatePO);
+  ngInput.addEventListener('input', function () {
+    updateOtherAmount(ngInput, poInput);
+  });
   poInput.addEventListener('input', function () {
-    ngInput.classList.remove('invalid');
+    updateOtherAmount(poInput, ngInput);
   });
 
   updateTotalFromDate();
