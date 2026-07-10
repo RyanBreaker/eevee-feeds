@@ -125,6 +125,35 @@ def test_settings_page_with_notification_log(client, test_engine, monkeypatch):
     assert "test-topic" in response.text
 
 
+def test_update_feeding_renders_table_row(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime.now() - timedelta(hours=3),
+            po_amount=30,
+            ng_amount=10,
+            notes="initial",
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.put(
+        f"/feedings/{feeding_id}",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "45",
+            "ng_amount": "25",
+            "notes": "after edit",
+        },
+    )
+    assert r.status_code == 200
+    assert f'<tr id="feeding-{feeding_id}">' in r.text
+    assert "45 ml" in r.text
+    assert "25 ml" in r.text
+    assert "after edit" in r.text
+    assert "inline-form" not in r.text
 def test_next_feeding_window_on_today_page(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
 
