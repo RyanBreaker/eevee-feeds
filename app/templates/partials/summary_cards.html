@@ -4,16 +4,16 @@
     <div class="summary-value">{{ summary.total }} / {{ summary.target }} ml</div>
   </div>
   <div class="summary-card">
-    <div class="summary-label">PO Percentage</div>
-    <div class="summary-value">{{ summary.po_pct }}%</div>
-  </div>
-  <div class="summary-card">
     <div class="summary-label">Remaining</div>
     <div class="summary-value">{{ summary.remaining }} ml</div>
   </div>
   <div class="summary-card">
-    <div class="summary-label">Avg gap</div>
-    <div class="summary-value">{% if summary.avg_gap %}{{ summary.avg_gap | format_duration }}{% else %}—{% endif %}</div>
+    <div class="summary-label">PO / NG</div>
+    <div class="summary-value">{{ summary.po }} / {{ summary.ng }} ml</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">PO Percentage</div>
+    <div class="summary-value">{{ summary.po_pct }}%</div>
   </div>
   {% if summary.time_since_last %}
   <div class="summary-card">
@@ -33,7 +33,7 @@
   </div>
   {% endif %}
   <div class="summary-card">
-    <div class="summary-label">PO / NG</div>
-    <div class="summary-value">{{ summary.po }} / {{ summary.ng }} ml</div>
+    <div class="summary-label">Avg gap</div>
+    <div class="summary-value">{% if summary.avg_gap %}{{ summary.avg_gap | format_duration }}{% else %}—{% endif %}</div>
   </div>
 </div>
