@@ -37,6 +37,7 @@ pytest -v
 - For route changes, add integration tests in `tests/test_routes.py`.
 - For notifier/message formatting changes, add tests in `tests/test_notifier.py`.
 - For period/volume logic, add tests in `tests/test_period.py`.
+- For summary/chart logic, add tests in `tests/test_summary.py`.
 - For CSV import logic, add tests in `tests/test_csv_import.py`.
 
 ### Manual testing

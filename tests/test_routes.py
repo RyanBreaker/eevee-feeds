@@ -9,7 +9,8 @@ from sqlmodel import Session
 
 from app.models import Feeding, NotificationLog
 from app.notifier import notifier
-from app.routes import get_chart_data, get_or_create_config
+from app.repository import get_or_create_config
+from app.summary import get_chart_data
 
 
 def test_login_page(client):
