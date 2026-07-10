@@ -146,21 +146,30 @@ def get_chart_data(session: Session, config: TargetConfig, end_period: datetime)
         chart_end = end_period
 
     periods = []
+    has_data = []
     for i in range(13, -1, -1):
         start = chart_end - timedelta(days=i)
         summary = get_period_summary(session, config, start)
+        has_feedings = summary["total"] > 0
+        has_data.append(has_feedings)
         periods.append(
             {
                 "label": get_period_label(start),
-                "total": summary["total"],
+                "total": summary["total"] if has_feedings else None,
                 "target": summary["target"],
-                "po_pct": summary["po_pct"],
+                "po_pct": summary["po_pct"] if has_feedings else None,
             }
         )
 
-    po_trend = linear_trend([p["po_pct"] for p in periods])
-    for period, trend in zip(periods, po_trend):
-        period["po_trend"] = round(trend, 1)
+    x_values = [i for i, has in enumerate(has_data) if has]
+    y_values = [periods[i]["po_pct"] for i in x_values]
+    trend_values = linear_trend(y_values)
+    trend_iter = iter(trend_values)
+    for i, has in enumerate(has_data):
+        if has:
+            periods[i]["po_trend"] = round(next(trend_iter), 1)
+        else:
+            periods[i]["po_trend"] = None
 
     return periods
 

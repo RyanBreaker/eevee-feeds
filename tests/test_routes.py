@@ -9,6 +9,7 @@ from sqlmodel import Session
 
 from app.models import Feeding, NotificationLog
 from app.notifier import notifier
+from app.routes import get_chart_data, get_or_create_config
 
 
 def test_login_page(client):
@@ -214,3 +215,28 @@ def test_index_includes_po_trend(client):
     assert response.status_code == 200
     assert '"po_trend"' in response.text
     assert "PO % Trend" in response.text
+
+
+def test_chart_data_excludes_empty_periods(test_engine):
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 5, 12, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+        chart_data = get_chart_data(session, config, datetime(2026, 7, 5, 6, 0))
+
+    data_day = next(d for d in chart_data if d["label"] == "Jul 5")
+    empty_day = next(d for d in chart_data if d["label"] == "Jul 4")
+
+    assert data_day["total"] == 40
+    assert data_day["po_pct"] is not None
+    assert data_day["po_trend"] is not None
+    assert empty_day["total"] is None
+    assert empty_day["po_pct"] is None
+    assert empty_day["po_trend"] is None
+    assert empty_day["target"] is not None
