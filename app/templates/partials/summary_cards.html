@@ -1,4 +1,4 @@
-<div id="summary-cards" hx-swap-oob="true" class="summary-grid">
+<div id="summary-cards" hx-get="/summary-cards" hx-trigger="feeding-updated from:body" hx-swap="outerHTML" hx-swap-oob="true" class="summary-grid">
   <div class="summary-card">
     <div class="summary-label">Total / Target</div>
     <div class="summary-value">{{ summary.total }} / {{ summary.target }} ml</div>

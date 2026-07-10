@@ -231,6 +231,20 @@ def index(
     )
 
 
+@router.get("/summary-cards", response_class=HTMLResponse)
+def summary_cards(
+    request: Request,
+    session: Session = Depends(get_session),
+    _: Optional[str] = Depends(require_auth),
+):
+    config = get_or_create_config(session)
+    summary = get_period_summary(session, config, get_current_period_start())
+    return templates.TemplateResponse(
+        "partials/summary_cards.html",
+        {"request": request, "summary": summary},
+    )
+
+
 @router.post("/feedings", response_class=HTMLResponse)
 def create_feeding(
     request: Request,
@@ -325,19 +339,17 @@ def update_feeding(
     session.add(feeding)
     session.commit()
 
-    config = get_or_create_config(session)
-    feeding_period = get_period_start(feeding.timestamp)
-    summary = get_period_summary(session, config, feeding_period)
     gap = get_feeding_gap(session, feeding)
-    return templates.TemplateResponse(
-        "partials/feeding_row_oob.html",
+    response = templates.TemplateResponse(
+        "partials/feeding_row.html",
         {
             "request": request,
             "feeding": feeding,
             "gap": gap,
-            "summary": summary,
         },
     )
+    response.headers["HX-Trigger"] = "feeding-updated"
+    return response
 
 
 @router.delete("/feedings/{feeding_id}", response_class=HTMLResponse)

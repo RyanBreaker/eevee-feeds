@@ -154,6 +154,29 @@ def test_update_feeding_renders_table_row(client, test_engine):
     assert "25 ml" in r.text
     assert "after edit" in r.text
     assert "inline-form" not in r.text
+    assert r.headers.get("HX-Trigger") == "feeding-updated"
+
+
+def test_summary_cards_route(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime.now() - timedelta(hours=3),
+            po_amount=30,
+            ng_amount=10,
+            notes="initial",
+        )
+        session.add(feeding)
+        session.commit()
+
+    r = client.get("/summary-cards")
+    assert r.status_code == 200
+    assert 'id="summary-cards"' in r.text
+    assert "30 /" in r.text
+    assert "10 ml" in r.text
+
+
 def test_next_feeding_window_on_today_page(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
 
