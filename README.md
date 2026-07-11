@@ -75,6 +75,9 @@ Railway uses the `Dockerfile`.
 | `NTFY_SERVER` | ntfy server URL | `https://ntfy.sh` |
 | `NTFY_THRESHOLDS` | Hours since last feed to notify, comma-separated | `2,3,4` |
 | `APP_URL` | Optional URL added to ntfy notifications as a click link | none |
+| `B2_KEY_ID` | Backblaze B2 key ID for backups | none (disabled) |
+| `B2_APPLICATION_KEY` | Backblaze B2 application key for backups | none (disabled) |
+| `B2_BUCKET_NAME` | Backblaze B2 bucket name for backups | none (disabled) |
 
 ## Notifications
 
@@ -97,3 +100,18 @@ Period boundaries are based on server time. When deploying to Railway, set `TZ` 
 ## CSV export
 
 Go to **Settings** and click **Export Feedings** to download a CSV of all feedings.
+
+## Backups
+
+The app can automatically back up all feeding records to a Backblaze B2 bucket once per day at the start of each Period (6:00 AM local time). Backups are immutable CSV files that use the same format as the export, so they can be restored by downloading a backup from B2 and importing it through the app.
+
+To enable backups:
+
+1. Create a private Backblaze B2 bucket.
+2. Create an application key with `writeFiles` permission for that bucket.
+3. Set the environment variables:
+   - `B2_KEY_ID`
+   - `B2_APPLICATION_KEY`
+   - `B2_BUCKET_NAME`
+
+Backups run automatically in the background. Go to **Settings** to see the last backup time and result, or click **Back up now** to run one immediately. If the variables are not set, the Settings page shows that backups are disabled.
