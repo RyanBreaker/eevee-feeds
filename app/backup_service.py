@@ -21,6 +21,12 @@ MAX_RETRIES = 3
 BACKOFF_BASE_SECONDS = 1.0
 
 
+class BackupConfigError(Exception):
+    """Raised for configuration problems that should not be retried."""
+
+    pass
+
+
 class BackupService:
     def __init__(
         self,
@@ -87,6 +93,9 @@ class BackupService:
                     await self._upload_to_b2(client, csv_bytes, object_key, sha1)
                 success = True
                 break
+            except BackupConfigError as exc:
+                logger.error("Backup configuration error: %s", exc)
+                break
             except httpx.HTTPStatusError as exc:
                 logger.warning(
                     "Backup attempt %d failed: B2 returned %s - %s",
@@ -135,13 +144,31 @@ class BackupService:
         account_id = auth_response["accountId"]
         auth_token = auth_response["authorizationToken"]
 
-        bucket_id = await self._get_bucket_id(client, api_url, auth_token, account_id)
+        bucket_id = self._bucket_id_from_allowed(auth_response)
+        if bucket_id is None:
+            bucket_id = await self._get_bucket_id(
+                client, api_url, auth_token, account_id
+            )
         upload_url, upload_auth_token = await self._get_upload_url(
             client, api_url, auth_token, bucket_id
         )
         await self._upload_file(
             client, upload_url, upload_auth_token, object_key, csv_bytes, sha1
         )
+
+    def _bucket_id_from_allowed(self, auth_response: dict) -> Optional[str]:
+        allowed = auth_response.get("allowed") or {}
+        bucket_id = allowed.get("bucketId")
+        bucket_name = allowed.get("bucketName")
+        if bucket_id and bucket_name:
+            if bucket_name != self.bucket_name:
+                raise BackupConfigError(
+                    f"B2 key is restricted to bucket {bucket_name!r}, "
+                    f"but {self.bucket_name!r} is configured"
+                )
+            logger.debug("Using bucketId from allowed: %s", bucket_id)
+            return bucket_id
+        return None
 
     async def _authorize_account(self, client: httpx.AsyncClient) -> dict:
         logger.debug("Authorizing B2 account")
@@ -187,9 +214,11 @@ class BackupService:
         data = response.json()
         for bucket in data["buckets"]:
             if bucket["bucketName"] == self.bucket_name:
-                logger.debug("Found B2 bucket %s with id %s", self.bucket_name, bucket["bucketId"])
+                logger.debug(
+                    "Found B2 bucket %s with id %s", self.bucket_name, bucket["bucketId"]
+                )
                 return bucket["bucketId"]
-        raise RuntimeError(f"B2 bucket {self.bucket_name} not found")
+        raise BackupConfigError(f"B2 bucket {self.bucket_name!r} not found")
 
     async def _get_upload_url(
         self,

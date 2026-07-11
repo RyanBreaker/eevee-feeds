@@ -307,3 +307,105 @@ def test_make_object_key():
     run_timestamp = datetime(2026, 7, 10, 12, 0, 0)
     key = BackupService.make_object_key(period_start, run_timestamp)
     assert key == "feedings/feedings_backup_2026-07-10_2026-07-10T120000Z.csv"
+
+
+@pytest.mark.asyncio
+async def test_run_backup_uses_allowed_bucket_id_without_listing(
+    test_engine, monkeypatch, no_sleep
+):
+    class RestrictedTransport(B2MockTransport):
+        def handler(self, request: httpx.Request):
+            url = str(request.url)
+            if url == B2_AUTH_URL:
+                self.authorize_count += 1
+                return httpx.Response(
+                    200,
+                    json={
+                        "accountId": "123",
+                        "authorizationToken": "auth-token",
+                        "apiUrl": "https://api900.backblazeb2.com",
+                        "downloadUrl": "https://f900.backblazeb2.com",
+                        "allowed": {
+                            "bucketId": "restricted-bucket-id",
+                            "bucketName": "test-bucket",
+                            "capabilities": ["writeFiles"],
+                        },
+                    },
+                )
+            if "/b2_list_buckets" in request.url.path:
+                return httpx.Response(403, text="not allowed")
+            return super().handler(request)
+
+    transport = RestrictedTransport()
+    monkeypatch.setattr(httpx, "AsyncClient", make_async_client_factory(transport))
+
+    now = datetime(2026, 7, 10, 12, 0)
+    run_timestamp = datetime(2026, 7, 10, 17, 0, 0)
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=now - timedelta(hours=3),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+    service = make_service(bucket_name="test-bucket")
+    with Session(test_engine) as session:
+        ok = await service.run_backup(
+            session, now=now, run_timestamp=run_timestamp
+        )
+
+    assert ok is True
+    assert transport.authorize_count == 1
+    assert transport.upload_count == 1
+
+
+@pytest.mark.asyncio
+async def test_run_backup_rejects_mismatched_restricted_bucket(
+    test_engine, monkeypatch, no_sleep
+):
+    class RestrictedTransport(B2MockTransport):
+        def handler(self, request: httpx.Request):
+            url = str(request.url)
+            if url == B2_AUTH_URL:
+                self.authorize_count += 1
+                return httpx.Response(
+                    200,
+                    json={
+                        "accountId": "123",
+                        "authorizationToken": "auth-token",
+                        "apiUrl": "https://api900.backblazeb2.com",
+                        "downloadUrl": "https://f900.backblazeb2.com",
+                        "allowed": {
+                            "bucketId": "restricted-bucket-id",
+                            "bucketName": "other-bucket",
+                            "capabilities": ["writeFiles"],
+                        },
+                    },
+                )
+            return super().handler(request)
+
+    transport = RestrictedTransport()
+    monkeypatch.setattr(httpx, "AsyncClient", make_async_client_factory(transport))
+
+    now = datetime(2026, 7, 10, 12, 0)
+    run_timestamp = datetime(2026, 7, 10, 17, 0, 0)
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=now - timedelta(hours=3),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+    service = make_service(bucket_name="test-bucket")
+    with Session(test_engine) as session:
+        ok = await service.run_backup(
+            session, now=now, run_timestamp=run_timestamp
+        )
+
+    assert ok is False
+    assert transport.authorize_count == 1
+    assert transport.upload_count == 0
