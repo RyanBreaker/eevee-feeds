@@ -228,6 +228,48 @@ async def test_run_backup_logs_failure_after_retries(
         assert logs[0].run_timestamp == run_timestamp
 
 
+@pytest.mark.asyncio
+async def test_run_backup_logs_b2_status_on_http_error(
+    test_engine, monkeypatch, no_sleep, caplog
+):
+    class ForbiddenTransport(B2MockTransport):
+        def handler(self, request: httpx.Request):
+            url = str(request.url)
+            path = request.url.path
+            if "/b2_upload_file" in path:
+                self.upload_count += 1
+                return httpx.Response(
+                    403,
+                    json={"code": "unauthorized", "message": "not authorized"},
+                )
+            return super().handler(request)
+
+    transport = ForbiddenTransport()
+    monkeypatch.setattr(httpx, "AsyncClient", make_async_client_factory(transport))
+
+    now = datetime(2026, 7, 10, 12, 0)
+    run_timestamp = datetime(2026, 7, 10, 17, 0, 0)
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=now - timedelta(hours=3),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+    service = make_service()
+    with caplog.at_level("WARNING", logger="uvicorn"):
+        with Session(test_engine) as session:
+            ok = await service.run_backup(
+                session, now=now, run_timestamp=run_timestamp
+            )
+
+    assert ok is False
+    assert any("B2 returned 403" in record.message for record in caplog.records)
+    assert any("unauthorized" in record.message for record in caplog.records)
+
+
 def test_get_status_disabled(test_engine):
     service = BackupService()
     with Session(test_engine) as session:

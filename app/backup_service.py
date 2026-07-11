@@ -87,6 +87,15 @@ class BackupService:
                     await self._upload_to_b2(client, csv_bytes, object_key, sha1)
                 success = True
                 break
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "Backup attempt %d failed: B2 returned %s - %s",
+                    attempt,
+                    exc.response.status_code,
+                    exc.response.text,
+                )
+                if attempt <= MAX_RETRIES:
+                    await asyncio.sleep(BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)))
             except Exception as exc:
                 logger.warning(
                     "Backup attempt %d failed: %s", attempt, type(exc).__name__
@@ -135,12 +144,23 @@ class BackupService:
         )
 
     async def _authorize_account(self, client: httpx.AsyncClient) -> dict:
-        response = await client.get(
-            B2_AUTH_URL,
-            auth=(self.key_id, self.application_key),
-        )
-        response.raise_for_status()
-        return response.json()
+        logger.debug("Authorizing B2 account")
+        try:
+            response = await client.get(
+                B2_AUTH_URL,
+                auth=(self.key_id, self.application_key),
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "B2 authorization failed: %s - %s",
+                exc.response.status_code,
+                exc.response.text,
+            )
+            raise
+        data = response.json()
+        logger.debug("B2 account authorized: %s", data.get("accountId"))
+        return data
 
     async def _get_bucket_id(
         self,
@@ -149,15 +169,25 @@ class BackupService:
         auth_token: str,
         account_id: str,
     ) -> str:
-        response = await client.get(
-            f"{api_url}/b2api/v2/b2_list_buckets",
-            params={"accountId": account_id},
-            headers={"Authorization": auth_token},
-        )
-        response.raise_for_status()
+        logger.debug("Listing B2 buckets for account %s", account_id)
+        try:
+            response = await client.get(
+                f"{api_url}/b2api/v2/b2_list_buckets",
+                params={"accountId": account_id},
+                headers={"Authorization": auth_token},
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "B2 list_buckets failed: %s - %s",
+                exc.response.status_code,
+                exc.response.text,
+            )
+            raise
         data = response.json()
         for bucket in data["buckets"]:
             if bucket["bucketName"] == self.bucket_name:
+                logger.debug("Found B2 bucket %s with id %s", self.bucket_name, bucket["bucketId"])
                 return bucket["bucketId"]
         raise RuntimeError(f"B2 bucket {self.bucket_name} not found")
 
@@ -168,12 +198,21 @@ class BackupService:
         auth_token: str,
         bucket_id: str,
     ) -> tuple[str, str]:
-        response = await client.get(
-            f"{api_url}/b2api/v2/b2_get_upload_url",
-            params={"bucketId": bucket_id},
-            headers={"Authorization": auth_token},
-        )
-        response.raise_for_status()
+        logger.debug("Requesting B2 upload URL for bucket %s", bucket_id)
+        try:
+            response = await client.get(
+                f"{api_url}/b2api/v2/b2_get_upload_url",
+                params={"bucketId": bucket_id},
+                headers={"Authorization": auth_token},
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "B2 get_upload_url failed: %s - %s",
+                exc.response.status_code,
+                exc.response.text,
+            )
+            raise
         data = response.json()
         return data["uploadUrl"], data["authorizationToken"]
 
@@ -186,18 +225,28 @@ class BackupService:
         csv_bytes: bytes,
         sha1: str,
     ) -> None:
-        response = await client.post(
-            upload_url,
-            headers={
-                "Authorization": upload_auth_token,
-                "X-Bz-File-Name": quote(object_key, safe=""),
-                "Content-Type": "text/csv",
-                "Content-Length": str(len(csv_bytes)),
-                "X-Bz-Content-Sha1": sha1,
-            },
-            content=csv_bytes,
-        )
-        response.raise_for_status()
+        encoded_key = quote(object_key, safe="")
+        logger.debug("Uploading backup to B2: %s (%d bytes)", object_key, len(csv_bytes))
+        try:
+            response = await client.post(
+                upload_url,
+                headers={
+                    "Authorization": upload_auth_token,
+                    "X-Bz-File-Name": encoded_key,
+                    "Content-Type": "text/csv",
+                    "Content-Length": str(len(csv_bytes)),
+                    "X-Bz-Content-Sha1": sha1,
+                },
+                content=csv_bytes,
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "B2 file upload failed: %s - %s",
+                exc.response.status_code,
+                exc.response.text,
+            )
+            raise
 
 
 backup_service = BackupService()
