@@ -7,14 +7,19 @@ import httpx
 from sqlmodel import Session
 
 from app.database import session_factory
-from app.notification_service import NotificationService
+from app.notification_service import NotificationService, notification_service
 
 logger = logging.getLogger("uvicorn")
 
 
 class FeedingNotifier:
-    def __init__(self, session_factory: Callable[[], Session]):
-        self.service = NotificationService(session_factory)
+    def __init__(
+        self,
+        session_factory: Callable[[], Session],
+        service: NotificationService,
+    ):
+        self.session_factory = session_factory
+        self.service = service
         self.client: Optional[httpx.AsyncClient] = None
         self.task: Optional[asyncio.Task] = None
         self.app_start_time: Optional[datetime] = None
@@ -52,14 +57,14 @@ class FeedingNotifier:
             await self._check()
 
     async def _check(self) -> None:
-        with self.service.session_factory() as session:
+        with self.session_factory() as session:
             await self.service.run_check(
                 session, self.client, datetime.now(), self.app_start_time
             )
 
     async def send_test(self) -> bool:
-        with self.service.session_factory() as session:
+        with self.session_factory() as session:
             return await self.service.send_test(session, self.client)
 
 
-notifier = FeedingNotifier(session_factory)
+notifier = FeedingNotifier(session_factory, notification_service)

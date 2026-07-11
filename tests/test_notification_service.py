@@ -9,9 +9,8 @@ from app.models import Feeding, NotificationLog
 from app.notification_service import DEFAULT_THRESHOLDS, NotificationService
 
 
-def make_service(session_factory, **overrides):
+def make_service(**overrides):
     kwargs = {
-        "session_factory": session_factory,
         "topic": "test-topic",
         "server": "https://ntfy.sh",
         "thresholds": "2,3,4",
@@ -22,22 +21,22 @@ def make_service(session_factory, **overrides):
 
 
 def test_parse_thresholds_default():
-    service = make_service(lambda: None)
+    service = make_service()
     assert service.parse_thresholds(None) == DEFAULT_THRESHOLDS
 
 
 def test_parse_thresholds_custom():
-    service = make_service(lambda: None)
+    service = make_service()
     assert service.parse_thresholds("4, 2, 2") == [2, 4]
 
 
 def test_parse_thresholds_invalid():
-    service = make_service(lambda: None)
+    service = make_service()
     assert service.parse_thresholds("not-a-number") == [2, 3, 4]
 
 
 def test_body_for_feeding():
-    service = make_service(lambda: None)
+    service = make_service()
     feeding = Feeding(
         timestamp=datetime(2026, 7, 9, 12, 0),
         po_amount=30,
@@ -50,7 +49,7 @@ def test_body_for_feeding():
 
 
 def test_priority():
-    service = make_service(lambda: None)
+    service = make_service()
     assert service.priority([]) == 3
     assert service.priority([2]) == 3
     assert service.priority([2, 3]) == 3
@@ -58,7 +57,7 @@ def test_priority():
 
 
 def test_build_payload():
-    service = make_service(lambda: None, app_url=None)
+    service = make_service(app_url=None)
     payload = service.build_payload("Title", "Body", 3)
     assert payload == {
         "topic": "test-topic",
@@ -70,13 +69,13 @@ def test_build_payload():
 
 
 def test_build_payload_with_app_url():
-    service = make_service(lambda: None, app_url="https://example.com")
+    service = make_service(app_url="https://example.com")
     payload = service.build_payload("Title", "Body", 4)
     assert payload["click"] == "https://example.com"
 
 
 @pytest.mark.asyncio
-async def test_send_test_payload(monkeypatch, test_engine):
+async def test_send_test_payload(test_engine):
     captured = []
 
     def handler(request: httpx.Request):
@@ -92,10 +91,7 @@ async def test_send_test_payload(monkeypatch, test_engine):
         session.add(feeding)
         session.commit()
 
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory)
+    service = make_service()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     with Session(test_engine) as session:
@@ -127,10 +123,7 @@ async def test_send_test_payload_under_threshold(test_engine):
         session.add(feeding)
         session.commit()
 
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory)
+    service = make_service()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     with Session(test_engine) as session:
@@ -162,10 +155,7 @@ async def test_run_check_sends_notification_when_threshold_crossed(test_engine):
         session.commit()
         feeding_id = feeding.id
 
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory)
+    service = make_service()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     with Session(test_engine) as session:
@@ -205,10 +195,7 @@ async def test_run_check_skips_already_sent(test_engine):
         session.add(NotificationLog(feeding_id=feeding_id, threshold_hours=4))
         session.commit()
 
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory)
+    service = make_service()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     with Session(test_engine) as session:
@@ -223,6 +210,9 @@ async def test_run_check_skips_already_sent(test_engine):
         assert len(logs) == 3
         assert {log.threshold_hours for log in logs} == {2, 3, 4}
 
+
+@pytest.mark.asyncio
+async def test_run_check_skips_before_app_start_time(test_engine):
     captured = []
 
     def handler(request: httpx.Request):
@@ -240,10 +230,7 @@ async def test_run_check_skips_already_sent(test_engine):
         session.add(feeding)
         session.commit()
 
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory)
+    service = make_service()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     with Session(test_engine) as session:
@@ -271,10 +258,7 @@ async def test_run_check_sends_multiple_thresholds(test_engine):
         session.commit()
         feeding_id = feeding.id
 
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory)
+    service = make_service()
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     with Session(test_engine) as session:
@@ -301,10 +285,7 @@ def test_get_status_enabled(test_engine, monkeypatch):
         session.add(feeding)
         session.commit()
 
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory)
+    service = make_service()
     with Session(test_engine) as session:
         status = service.get_status(session)
 
@@ -314,10 +295,7 @@ def test_get_status_enabled(test_engine, monkeypatch):
 
 
 def test_get_status_disabled(test_engine):
-    def session_factory():
-        return Session(test_engine)
-
-    service = make_service(session_factory, topic=None)
+    service = make_service(topic=None)
     with Session(test_engine) as session:
         status = service.get_status(session)
 

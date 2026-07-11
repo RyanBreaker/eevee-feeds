@@ -37,11 +37,11 @@ def patch_engines(test_engine, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def reset_notifier(monkeypatch):
-    for service in (app.notification_service.notification_service, app.notifier.notifier.service):
-        monkeypatch.setattr(service, "topic", None)
-        monkeypatch.setattr(service, "server", "https://ntfy.sh")
-        monkeypatch.setattr(service, "app_url", None)
-        monkeypatch.setattr(service, "thresholds", [2, 3, 4])
+    service = app.notification_service.notification_service
+    monkeypatch.setattr(service, "topic", None)
+    monkeypatch.setattr(service, "server", "https://ntfy.sh")
+    monkeypatch.setattr(service, "app_url", None)
+    monkeypatch.setattr(service, "thresholds", [2, 3, 4])
     monkeypatch.setattr(app.notifier.notifier, "client", None)
     monkeypatch.setattr(app.notifier.notifier, "task", None)
     monkeypatch.setattr(app.notifier.notifier, "app_start_time", None)

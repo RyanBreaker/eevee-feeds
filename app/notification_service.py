@@ -1,12 +1,11 @@
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Callable, List, Optional
+from typing import List, Optional
 
 import httpx
 from sqlmodel import Session, select
 
-from app.database import session_factory
 from app.models import Feeding, NotificationLog
 from app.period import format_duration
 from app.repository import get_last_feeding
@@ -20,13 +19,11 @@ DEFAULT_SERVER = "https://ntfy.sh"
 class NotificationService:
     def __init__(
         self,
-        session_factory: Callable[[], Session],
         topic: Optional[str] = None,
         server: Optional[str] = None,
         thresholds: Optional[str] = None,
         app_url: Optional[str] = None,
     ):
-        self.session_factory = session_factory
         self.topic = topic or os.getenv("NTFY_TOPIC")
         self.server = (server or os.getenv("NTFY_SERVER") or DEFAULT_SERVER).rstrip("/")
         self.app_url = app_url or os.getenv("APP_URL")
@@ -196,4 +193,4 @@ class NotificationService:
                 self._record_sent(session, last_feeding.id, threshold)
 
 
-notification_service = NotificationService(session_factory)
+notification_service = NotificationService()
