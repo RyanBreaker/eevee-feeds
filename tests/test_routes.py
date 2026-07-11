@@ -426,8 +426,8 @@ def test_feed_target_period_boundary(client, test_engine):
     assert r.status_code == 200
     data = r.json()
     # Previous feeding is in the previous period but still counts.
-    # Interval is 1 hour -> 560 * 1 / 24 = 23.
-    assert data["per_feed"] == 23
+    # Interval is 1 hour, clamped to the 2-hour floor -> 560 * 2 / 24 = 47.
+    assert data["per_feed"] == 47
 
 
 def test_settings_page_shows_backup_disabled(client):

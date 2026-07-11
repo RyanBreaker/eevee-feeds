@@ -56,7 +56,7 @@ def get_target_feed_amount(
     """Return the interval-aware recommended volume for a single Feeding.
 
     The elapsed interval is rounded to the nearest 30 minutes (ties round up),
-    clamped to a [1, 4] hour range, and then prorated against the 24-hour
+    clamped to a [2, 4] hour range, and then prorated against the 24-hour
     target volume. When there is no previous Feeding, fall back to the static
     per-feed target (target_volume / 8, rounded up).
     """
@@ -65,7 +65,7 @@ def get_target_feed_amount(
 
     interval_hours = (selected_timestamp - previous_timestamp).total_seconds() / 3600
     rounded_hours = math.floor(interval_hours * 2 + 0.5) / 2
-    clamped_hours = max(1.0, min(4.0, rounded_hours))
+    clamped_hours = max(2.0, min(4.0, rounded_hours))
     return round(target_volume * clamped_hours / 24)
 
 

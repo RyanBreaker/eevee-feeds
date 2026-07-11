@@ -111,11 +111,11 @@ def test_get_target_feed_amount_rounds_interval_ties_up():
     assert get_target_feed_amount(480, selected, previous) == 50
 
 
-def test_get_target_feed_amount_floors_at_one_hour():
+def test_get_target_feed_amount_floors_at_two_hours():
     selected = datetime(2026, 7, 9, 12, 0)
     previous = datetime(2026, 7, 9, 11, 15)
-    # 45 minutes -> rounds to 1.0 hour after floor
-    assert get_target_feed_amount(480, selected, previous) == 20
+    # 45 minutes -> rounds to 1.0 hour, then clamped to 2.0 hour floor
+    assert get_target_feed_amount(480, selected, previous) == 40
 
 
 def test_get_target_feed_amount_caps_at_four_hours():
