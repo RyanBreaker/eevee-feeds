@@ -1,10 +1,29 @@
+function formatDurationMinutes(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) {
+    return hours + 'h ' + minutes + 'm';
+  }
+  return minutes + 'm';
+}
+
 function initFeedingForm(form) {
   const timestampInput = form.querySelector('input[name="timestamp"]');
   const totalInput = form.querySelector('input[name="per_feed_total"]');
   const ngInput = form.querySelector('input[name="ng_amount"]');
   const poInput = form.querySelector('input[name="po_amount"]');
   const feedingIdInput = form.querySelector('input[name="feeding_id"]');
+  const noteSpan = form.querySelector('.feed-interval-note');
   if (!timestampInput || !totalInput || !ngInput || !poInput) return;
+
+  function updateIntervalNote(intervalMinutes) {
+    if (!noteSpan) return;
+    if (intervalMinutes != null) {
+      noteSpan.textContent = formatDurationMinutes(intervalMinutes) + ' since last feed';
+    } else {
+      noteSpan.textContent = '';
+    }
+  }
 
   async function updateTotalFromDate() {
     const ts = timestampInput.value;
@@ -19,10 +38,15 @@ function initFeedingForm(form) {
       if (!resp.ok) return;
       const data = await resp.json();
       totalInput.value = data.per_feed;
+      updateIntervalNote(data.interval_minutes);
     } catch (err) {
       console.error('Failed to fetch feed target:', err);
     }
   }
+
+  form.addEventListener('reset', function () {
+    updateIntervalNote(null);
+  });
 
   function updateOtherAmount(source, target) {
     const total = parseInt(totalInput.value, 10) || 0;

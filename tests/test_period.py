@@ -7,6 +7,7 @@ from app.period import (
     get_period_label,
     get_period_start,
     get_target_feed_amount,
+    get_target_feed_interval,
     get_target_volume,
     linear_trend,
 )
@@ -90,6 +91,32 @@ def test_linear_trend_flat():
 
 def test_linear_trend_empty():
     assert linear_trend([]) == []
+
+
+def test_get_target_feed_interval_returns_none_with_no_previous_feeding():
+    selected = datetime(2026, 7, 9, 12, 0)
+    assert get_target_feed_interval(selected) is None
+
+
+def test_get_target_feed_interval_rounds_and_clamps():
+    selected = datetime(2026, 7, 9, 12, 0)
+    previous = datetime(2026, 7, 9, 9, 50)
+    # 2h 10m -> 2.0h
+    assert get_target_feed_interval(selected, previous) == timedelta(hours=2)
+
+
+def test_get_target_feed_interval_floors_at_two_hours():
+    selected = datetime(2026, 7, 9, 12, 0)
+    previous = datetime(2026, 7, 9, 11, 15)
+    # 45m -> 1.0h -> clamped to 2.0h
+    assert get_target_feed_interval(selected, previous) == timedelta(hours=2)
+
+
+def test_get_target_feed_interval_caps_at_four_hours():
+    selected = datetime(2026, 7, 9, 12, 0)
+    previous = datetime(2026, 7, 8, 20, 0)
+    # 16h -> clamped to 4.0h
+    assert get_target_feed_interval(selected, previous) == timedelta(hours=4)
 
 
 def test_get_target_feed_amount_fallback_with_no_previous_feeding():

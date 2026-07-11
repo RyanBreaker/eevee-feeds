@@ -19,6 +19,7 @@ from app.period import (
     format_time,
     get_period_start,
     get_target_feed_amount,
+    get_target_feed_interval,
     get_target_volume,
 )
 from app.repository import (
@@ -154,7 +155,9 @@ def feed_target(
     per_feed = get_target_feed_amount(
         target, selected_timestamp, previous_timestamp
     )
-    return {"target": target, "per_feed": per_feed}
+    interval = get_target_feed_interval(selected_timestamp, previous_timestamp)
+    interval_minutes = int(interval.total_seconds() // 60) if interval else None
+    return {"target": target, "per_feed": per_feed, "interval_minutes": interval_minutes}
 
 
 @router.post("/feedings", response_class=HTMLResponse)

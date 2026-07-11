@@ -48,6 +48,25 @@ def get_per_feed_target(target_volume: int, feeds_per_day: int = 8) -> int:
     return math.ceil(target_volume / feeds_per_day)
 
 
+def get_target_feed_interval(
+    selected_timestamp: datetime,
+    previous_timestamp: Optional[datetime] = None,
+) -> Optional[timedelta]:
+    """Return the clamped/rounded interval used for TargetFeedAmount.
+
+    The elapsed interval is rounded to the nearest 30 minutes (ties round up)
+    and clamped to a [2, 4] hour range. When there is no previous Feeding,
+    return None.
+    """
+    if previous_timestamp is None:
+        return None
+
+    interval_hours = (selected_timestamp - previous_timestamp).total_seconds() / 3600
+    rounded_hours = math.floor(interval_hours * 2 + 0.5) / 2
+    clamped_hours = max(2.0, min(4.0, rounded_hours))
+    return timedelta(hours=clamped_hours)
+
+
 def get_target_feed_amount(
     target_volume: int,
     selected_timestamp: datetime,
@@ -60,13 +79,12 @@ def get_target_feed_amount(
     target volume. When there is no previous Feeding, fall back to the static
     per-feed target (target_volume / 8, rounded up).
     """
-    if previous_timestamp is None:
+    interval = get_target_feed_interval(selected_timestamp, previous_timestamp)
+    if interval is None:
         return get_per_feed_target(target_volume)
 
-    interval_hours = (selected_timestamp - previous_timestamp).total_seconds() / 3600
-    rounded_hours = math.floor(interval_hours * 2 + 0.5) / 2
-    clamped_hours = max(2.0, min(4.0, rounded_hours))
-    return round(target_volume * clamped_hours / 24)
+    hours = interval.total_seconds() / 3600
+    return round(target_volume * hours / 24)
 
 
 def format_time(dt: datetime) -> str:
