@@ -1,8 +1,10 @@
 <tr id="feeding-{{ feeding.id }}">
   <td>{{ feeding.timestamp.strftime("%I:%M %p") }}</td>
+  {% set total = feeding.po_amount + feeding.ng_amount %}
   <td>{{ feeding.po_amount }} ml</td>
   <td>{{ feeding.ng_amount }} ml</td>
-  <td>{{ feeding.po_amount + feeding.ng_amount }} ml</td>
+  <td>{{ total }} ml</td>
+  <td>{% if total > 0 %}{{ (feeding.po_amount / total * 100) | round(1) }}%{% else %}—{% endif %}</td>
   <td>{% if gap %}{{ gap | format_duration }}{% else %}—{% endif %}</td>
   <td>{{ feeding.notes or "" }}</td>
   <td class="actions">

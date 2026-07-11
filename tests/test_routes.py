@@ -202,6 +202,43 @@ def test_next_feeding_window_on_today_page(client):
     assert f"{format_time(window_start)}-{format_time(window_end)}" in response.text
 
 
+def test_index_shows_po_percentage_per_feeding(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    feeding_time = datetime.now().replace(second=0, microsecond=0)
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": feeding_time.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "<th>PO %</th>" in response.text
+    assert "75.0%" in response.text
+
+
+def test_index_shows_placeholder_for_zero_volume_feeding(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    feeding_time = datetime.now().replace(second=0, microsecond=0)
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": feeding_time.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "0",
+            "ng_amount": "0",
+        },
+    )
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "<th>PO %</th>" in response.text
+    assert "75.0%" not in response.text
+    assert "—" in response.text
+
+
 def test_index_includes_po_trend(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     client.post(

@@ -21,3 +21,7 @@ _Avoid_: backup run, backup attempt
 
 **TargetConfig**:
 The configuration that defines the starting feeding-volume target and the weekly increment schedule.
+
+**PO percentage**:
+The percentage of a Feeding's or Period's total volume that was delivered orally, calculated as `po_amount / (po_amount + ng_amount) * 100` and rounded to one decimal place. When the total volume is zero, the value is undefined and displayed as `—`.
+_Avoid_: PO ratio, oral fraction
