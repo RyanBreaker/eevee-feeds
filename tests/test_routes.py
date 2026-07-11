@@ -304,6 +304,7 @@ def test_feed_target_returns_target_and_per_feed(client, test_engine):
     assert data["target"] == 520
     # 3-hour interval -> 520 * 3 / 24 = 65
     assert data["per_feed"] == 65
+    assert data["actual_interval_minutes"] == 180
     assert data["interval_minutes"] == 180
 
 
@@ -327,6 +328,7 @@ def test_feed_target_rounds_up(client, test_engine):
     assert data["target"] == 550
     # 3-hour interval -> 550 * 3 / 24 = 68.75 -> 69
     assert data["per_feed"] == 69
+    assert data["actual_interval_minutes"] == 180
     assert data["interval_minutes"] == 180
 
 
@@ -338,6 +340,7 @@ def test_feed_target_falls_back_to_static_per_feed(client, test_engine):
     assert data["target"] == 520
     # No prior feeding -> ceil(520 / 8) = 65
     assert data["per_feed"] == 65
+    assert data["actual_interval_minutes"] is None
     assert data["interval_minutes"] is None
 
 
@@ -358,6 +361,7 @@ def test_feed_target_with_previous_feeding(client, test_engine):
     assert data["target"] == 560
     # 3-hour interval -> 560 * 3 / 24 = 70
     assert data["per_feed"] == 70
+    assert data["actual_interval_minutes"] == 180
     assert data["interval_minutes"] == 180
 
 
@@ -387,6 +391,7 @@ def test_feed_target_editing_excludes_current_feeding(client, test_engine):
     # Excluding the current feeding, the previous feeding is at 6:00.
     # The 6-hour interval is capped to 4 hours -> 560 * 4 / 24 = 93.
     assert data["per_feed"] == 93
+    assert data["actual_interval_minutes"] == 360
     assert data["interval_minutes"] == 240
 
 
@@ -413,6 +418,7 @@ def test_feed_target_backdated_timestamp(client, test_engine):
     # The previous feeding strictly before 12:00 is at 9:00,
     # so the interval is 3 hours -> 560 * 3 / 24 = 70.
     assert data["per_feed"] == 70
+    assert data["actual_interval_minutes"] == 180
     assert data["interval_minutes"] == 180
 
 
@@ -434,6 +440,7 @@ def test_feed_target_period_boundary(client, test_engine):
     # Previous feeding is in the previous period but still counts.
     # Interval is 1 hour, clamped to the 2-hour floor -> 560 * 2 / 24 = 47.
     assert data["per_feed"] == 47
+    assert data["actual_interval_minutes"] == 60
     assert data["interval_minutes"] == 120
 
 

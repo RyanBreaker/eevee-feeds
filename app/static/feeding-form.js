@@ -16,10 +16,14 @@ function initFeedingForm(form) {
   const noteSpan = form.querySelector('.feed-interval-note');
   if (!timestampInput || !totalInput || !ngInput || !poInput) return;
 
-  function updateIntervalNote(intervalMinutes) {
+  function updateIntervalNote(actualIntervalMinutes, intervalMinutes) {
     if (!noteSpan) return;
-    if (intervalMinutes != null) {
-      noteSpan.textContent = formatDurationMinutes(intervalMinutes) + ' since last feed';
+    if (actualIntervalMinutes != null && intervalMinutes != null) {
+      noteSpan.textContent =
+        formatDurationMinutes(actualIntervalMinutes) +
+        ' since last feed (using ' +
+        formatDurationMinutes(intervalMinutes) +
+        ')';
     } else {
       noteSpan.textContent = '';
     }
@@ -38,14 +42,14 @@ function initFeedingForm(form) {
       if (!resp.ok) return;
       const data = await resp.json();
       totalInput.value = data.per_feed;
-      updateIntervalNote(data.interval_minutes);
+      updateIntervalNote(data.actual_interval_minutes, data.interval_minutes);
     } catch (err) {
       console.error('Failed to fetch feed target:', err);
     }
   }
 
   form.addEventListener('reset', function () {
-    updateIntervalNote(null);
+    updateIntervalNote(null, null);
   });
 
   function updateOtherAmount(source, target) {

@@ -155,9 +155,21 @@ def feed_target(
     per_feed = get_target_feed_amount(
         target, selected_timestamp, previous_timestamp
     )
-    interval = get_target_feed_interval(selected_timestamp, previous_timestamp)
-    interval_minutes = int(interval.total_seconds() // 60) if interval else None
-    return {"target": target, "per_feed": per_feed, "interval_minutes": interval_minutes}
+    if previous_timestamp:
+        interval = get_target_feed_interval(selected_timestamp, previous_timestamp)
+        assert interval is not None
+        interval_minutes = int(interval.total_seconds() // 60)
+        actual_interval = selected_timestamp - previous_timestamp
+        actual_interval_minutes = int(actual_interval.total_seconds() // 60)
+    else:
+        interval_minutes = None
+        actual_interval_minutes = None
+    return {
+        "target": target,
+        "per_feed": per_feed,
+        "interval_minutes": interval_minutes,
+        "actual_interval_minutes": actual_interval_minutes,
+    }
 
 
 @router.post("/feedings", response_class=HTMLResponse)
