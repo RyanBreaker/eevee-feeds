@@ -45,6 +45,21 @@ def get_feeding_or_404(session: Session, feeding_id: int) -> Feeding:
     return feeding
 
 
+def _compute_target_per_feed(
+    session: Session,
+    config: TargetConfig,
+    timestamp: datetime,
+    exclude_feeding_id: Optional[int] = None,
+) -> int:
+    period_start = get_period_start(timestamp)
+    target = get_target_volume(config, period_start.date())
+    previous_feeding = get_previous_feeding(
+        session, timestamp, exclude_feeding_id=exclude_feeding_id
+    )
+    previous_timestamp = previous_feeding.timestamp if previous_feeding else None
+    return get_target_feed_amount(target, timestamp, previous_timestamp)
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: Optional[str] = None):
     return templates.TemplateResponse(
@@ -185,16 +200,18 @@ def create_feeding(
     if timestamp > datetime.now():
         raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
 
+    config = get_or_create_config(session)
+    target_per_feed = _compute_target_per_feed(session, config, timestamp)
     feeding = Feeding(
         timestamp=timestamp,
         po_amount=po_amount,
         ng_amount=ng_amount,
+        target_per_feed=target_per_feed,
         notes=notes,
     )
     session.add(feeding)
     session.commit()
 
-    config = get_or_create_config(session)
     feeding_period = get_period_start(feeding.timestamp)
     summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
@@ -251,10 +268,15 @@ def update_feeding(
         raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
 
     feeding = get_feeding_or_404(session, feeding_id)
+    config = get_or_create_config(session)
+    target_per_feed = _compute_target_per_feed(
+        session, config, timestamp, exclude_feeding_id=feeding_id
+    )
 
     feeding.timestamp = timestamp
     feeding.po_amount = po_amount
     feeding.ng_amount = ng_amount
+    feeding.target_per_feed = target_per_feed
     feeding.notes = notes
     feeding.updated_at = datetime.utcnow()
     session.add(feeding)

@@ -42,7 +42,7 @@ def test_login_invalid(client):
     assert "Invalid" in r.text
 
 
-def test_create_feeding(client):
+def test_create_feeding(client, test_engine):
     client.post("/login", data={"username": "admin", "password": "secret"})
     r = client.post(
         "/feedings",
@@ -53,6 +53,10 @@ def test_create_feeding(client):
         },
     )
     assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        feeding = session.get(Feeding, 1)
+    assert feeding.target_per_feed == 70
 
 
 def test_export_csv(client):
@@ -67,8 +71,8 @@ def test_export_csv(client):
     )
     r = client.get("/export")
     assert r.status_code == 200
-    assert "Timestamp,PO,NG,Total,Notes" in r.text
-    assert "30,10,40" in r.text
+    assert "Timestamp,PO,NG,Total,Target,Notes" in r.text
+    assert "30,10,40,70" in r.text
 
 
 def test_simple_test_notification(client, monkeypatch, test_engine):
@@ -155,9 +159,57 @@ def test_update_feeding_renders_table_row(client, test_engine):
     assert f'<tr id="feeding-{feeding_id}">' in r.text
     assert "45 ml" in r.text
     assert "25 ml" in r.text
+    assert "70 ml" in r.text
+    assert "+0 ml" in r.text
     assert "after edit" in r.text
     assert "inline-form" not in r.text
     assert r.headers.get("HX-Trigger") == "feeding-updated"
+
+    with Session(test_engine) as session:
+        feeding = session.get(Feeding, feeding_id)
+    assert feeding.target_per_feed == 70
+
+
+def test_feeding_row_shows_variance_when_over_target(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0),
+            po_amount=80,
+            ng_amount=10,
+            target_per_feed=70,
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.get(f"/feedings/{feeding_id}")
+    assert r.status_code == 200
+    assert "90 ml" in r.text
+    assert "70 ml" in r.text
+    assert "+20 ml" in r.text
+    assert "feed-variance over" in r.text
+
+
+def test_feeding_row_shows_dash_when_target_missing(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0),
+            po_amount=30,
+            ng_amount=10,
+            target_per_feed=None,
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.get(f"/feedings/{feeding_id}")
+    assert r.status_code == 200
+    assert "40 ml" in r.text
+    assert "feed-variance" not in r.text
 
 
 def test_summary_cards_route(client, test_engine):

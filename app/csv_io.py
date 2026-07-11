@@ -6,7 +6,7 @@ from typing import List, Optional, TextIO
 
 from app.models import Feeding
 
-SCHEMA = ["Timestamp", "PO", "NG", "Total", "Notes"]
+SCHEMA = ["Timestamp", "PO", "NG", "Total", "Target", "Notes"]
 _TIMESTAMP_FORMAT = "%a, %b %d, %Y %I:%M %p"
 
 
@@ -28,6 +28,7 @@ class FeedingCsvRow:
     po_amount: int
     ng_amount: int
     notes: Optional[str] = None
+    target_per_feed: Optional[int] = None
 
 
 class FeedingCsvReader:
@@ -47,12 +48,15 @@ class FeedingCsvReader:
                         f"CSV Total mismatch: {total_raw} != {expected_total} "
                         f"for {row['Timestamp']}"
                     )
+            target_raw = row.get("Target")
+            target_per_feed = int(target_raw) if target_raw else None
             rows.append(
                 FeedingCsvRow(
                     timestamp=_parse_timestamp(row["Timestamp"]),
                     po_amount=po_amount,
                     ng_amount=ng_amount,
                     notes=row.get("Notes") or None,
+                    target_per_feed=target_per_feed,
                 )
             )
         return rows
@@ -63,6 +67,7 @@ class FeedingCsvReader:
                 timestamp=row.timestamp,
                 po_amount=row.po_amount,
                 ng_amount=row.ng_amount,
+                target_per_feed=row.target_per_feed,
                 notes=row.notes,
             )
             for row in self.read_rows(source)
@@ -82,6 +87,7 @@ class FeedingCsvWriter:
                     "PO": row.po_amount,
                     "NG": row.ng_amount,
                     "Total": row.po_amount + row.ng_amount,
+                    "Target": row.target_per_feed if row.target_per_feed is not None else "",
                     "Notes": row.notes or "",
                 }
             )
@@ -96,6 +102,7 @@ class FeedingCsvWriter:
                 po_amount=f.po_amount,
                 ng_amount=f.ng_amount,
                 notes=f.notes,
+                target_per_feed=f.target_per_feed,
             )
             for f in feedings
         ]

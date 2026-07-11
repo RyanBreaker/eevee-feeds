@@ -41,7 +41,10 @@ function initFeedingForm(form) {
       const resp = await fetch('/api/feed-target?' + params.toString());
       if (!resp.ok) return;
       const data = await resp.json();
-      totalInput.value = data.per_feed;
+      const isEdit = feedingIdInput && feedingIdInput.value;
+      if (!isEdit) {
+        totalInput.value = data.per_feed;
+      }
       updateIntervalNote(data.actual_interval_minutes, data.interval_minutes);
     } catch (err) {
       console.error('Failed to fetch feed target:', err);
@@ -71,6 +74,9 @@ function initFeedingForm(form) {
   });
   poInput.addEventListener('input', function () {
     updateOtherAmount(poInput, ngInput);
+  });
+  totalInput.addEventListener('input', function () {
+    updateOtherAmount(ngInput, poInput);
   });
 
   updateTotalFromDate();

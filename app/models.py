@@ -10,6 +10,7 @@ class Feeding(SQLModel, table=True):
     timestamp: datetime
     po_amount: int = Field(ge=0)
     ng_amount: int = Field(ge=0)
+    target_per_feed: Optional[int] = Field(default=None, ge=0)
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

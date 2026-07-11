@@ -18,11 +18,11 @@ def _make_csv_text(rows):
 
 
 def test_schema_has_expected_columns():
-    assert SCHEMA == ["Timestamp", "PO", "NG", "Total", "Notes"]
+    assert SCHEMA == ["Timestamp", "PO", "NG", "Total", "Target", "Notes"]
 
 
 def test_reader_parses_basic_row():
-    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 40, "first"]])
+    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 40, 70, "first"]])
     reader = FeedingCsvReader()
     rows = reader.read_rows(text)
 
@@ -30,11 +30,12 @@ def test_reader_parses_basic_row():
     assert rows[0].timestamp == datetime(2026, 7, 3, 6, 0)
     assert rows[0].po_amount == 30
     assert rows[0].ng_amount == 10
+    assert rows[0].target_per_feed == 70
     assert rows[0].notes == "first"
 
 
 def test_reader_parses_nonbreaking_space():
-    text = _make_csv_text([["Thu, Jul 3, 2026\u202f6:00 AM", 30, 10, 40, ""]])
+    text = _make_csv_text([["Thu, Jul 3, 2026\u202f6:00 AM", 30, 10, 40, 70, ""]])
     reader = FeedingCsvReader()
     rows = reader.read_rows(text)
 
@@ -42,7 +43,7 @@ def test_reader_parses_nonbreaking_space():
 
 
 def test_reader_returns_feedings():
-    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 40, ""]])
+    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 40, 70, ""]])
     reader = FeedingCsvReader()
     feedings = reader.read_feedings(text)
 
@@ -51,10 +52,11 @@ def test_reader_returns_feedings():
     assert feedings[0].timestamp == datetime(2026, 7, 3, 6, 0)
     assert feedings[0].po_amount == 30
     assert feedings[0].ng_amount == 10
+    assert feedings[0].target_per_feed == 70
 
 
 def test_reader_rejects_mismatched_total():
-    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 99, ""]])
+    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 99, 70, ""]])
     reader = FeedingCsvReader()
     with pytest.raises(ValueError):
         reader.read_rows(text)
@@ -63,13 +65,13 @@ def test_reader_rejects_mismatched_total():
 def test_writer_outputs_header_and_rows():
     writer = FeedingCsvWriter()
     content = writer.write_feedings([
-        Feeding(timestamp=datetime(2026, 7, 3, 6, 0), po_amount=30, ng_amount=10, notes="hello"),
+        Feeding(timestamp=datetime(2026, 7, 3, 6, 0), po_amount=30, ng_amount=10, target_per_feed=70, notes="hello"),
     ])
 
     reader = csv.reader(StringIO(content))
     rows = list(reader)
-    assert rows[0] == ["Timestamp", "PO", "NG", "Total", "Notes"]
-    assert rows[1] == ["Fri, Jul 03, 2026 06:00 AM", "30", "10", "40", "hello"]
+    assert rows[0] == ["Timestamp", "PO", "NG", "Total", "Target", "Notes"]
+    assert rows[1] == ["Fri, Jul 03, 2026 06:00 AM", "30", "10", "40", "70", "hello"]
 
 
 def test_writer_computes_total():
@@ -83,10 +85,19 @@ def test_writer_computes_total():
     assert rows[1][3] == "40"
 
 
+def test_reader_handles_missing_target_column():
+    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 40, ""]])
+    reader = FeedingCsvReader()
+    rows = reader.read_rows(text)
+
+    assert len(rows) == 1
+    assert rows[0].target_per_feed is None
+
+
 def test_round_trip_preserves_feedings():
     original = [
-        Feeding(timestamp=datetime(2026, 7, 3, 6, 0), po_amount=30, ng_amount=10, notes="first"),
-        Feeding(timestamp=datetime(2026, 7, 3, 9, 0), po_amount=45, ng_amount=5, notes="second"),
+        Feeding(timestamp=datetime(2026, 7, 3, 6, 0), po_amount=30, ng_amount=10, target_per_feed=70, notes="first"),
+        Feeding(timestamp=datetime(2026, 7, 3, 9, 0), po_amount=45, ng_amount=5, target_per_feed=80, notes="second"),
     ]
 
     writer = FeedingCsvWriter()
@@ -100,4 +111,5 @@ def test_round_trip_preserves_feedings():
         assert orig.timestamp == imp.timestamp
         assert orig.po_amount == imp.po_amount
         assert orig.ng_amount == imp.ng_amount
+        assert orig.target_per_feed == imp.target_per_feed
         assert orig.notes == imp.notes

@@ -309,6 +309,19 @@ button.danger {
   padding: 0.75rem 1rem;
 }
 
+.feed-variance {
+  font-size: 0.8rem;
+  margin-left: 0.25rem;
+}
+
+.feed-variance.over {
+  color: #16a34a;
+}
+
+.feed-variance.under {
+  color: var(--danger);
+}
+
 canvas {
   max-height: 300px;
 }

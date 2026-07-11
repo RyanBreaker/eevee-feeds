@@ -4,6 +4,13 @@
   <td>{{ feeding.po_amount }} ml</td>
   <td>{{ feeding.ng_amount }} ml</td>
   <td>{{ total }} ml</td>
+  <td>
+    {% if feeding.target_per_feed is not none %}
+      {{ feeding.target_per_feed }} ml
+      {% set variance = total - feeding.target_per_feed %}
+      <span class="feed-variance {% if variance > 0 %}over{% elif variance < 0 %}under{% endif %}">{{ "%+d" | format(variance) }} ml</span>
+    {% else %}—{% endif %}
+  </td>
   <td>{% if total > 0 %}{{ (feeding.po_amount / total * 100) | round(1) }}%{% else %}—{% endif %}</td>
   <td>{% if gap %}{{ gap | format_duration }}{% else %}—{% endif %}</td>
   <td>{{ feeding.notes or "" }}</td>

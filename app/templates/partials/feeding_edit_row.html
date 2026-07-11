@@ -1,9 +1,9 @@
 <tr id="feeding-{{ feeding.id }}" class="editing">
-  <td colspan="8">
+  <td colspan="9">
     <form hx-put="/feedings/{{ feeding.id }}" hx-target="closest tr" hx-swap="outerHTML" hx-on::after-request="document.body.dispatchEvent(new Event('feeding-updated'))" class="inline-form feeding-form">
       <input type="hidden" name="feeding_id" value="{{ feeding.id }}">
       <input type="datetime-local" name="timestamp" value="{{ feeding.timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
-      <input type="number" name="per_feed_total" min="0" step="1" readonly>
+      <input type="number" name="per_feed_total" value="{{ feeding.po_amount + feeding.ng_amount }}" min="0" step="1">
       <input type="number" name="ng_amount" value="{{ feeding.ng_amount }}" min="0" step="1" required>
       <input type="number" name="po_amount" value="{{ feeding.po_amount }}" min="0" step="1" required>
       <input type="text" name="notes" value="{{ feeding.notes or '' }}" placeholder="Notes">
