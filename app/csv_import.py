@@ -1,11 +1,10 @@
 from io import StringIO
 from typing import TextIO
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.csv_io import FeedingCsvReader
-from app.models import Feeding
-from app.repository import get_or_create_config
+from app.repository import get_or_create_config, has_feedings
 
 
 def import_feedings_from_csv(
@@ -14,10 +13,8 @@ def import_feedings_from_csv(
     """Import feedings from a CSV file. Returns a summary dict."""
     get_or_create_config(session)
 
-    if skip_existing:
-        existing = session.exec(select(Feeding)).first()
-        if existing is not None:
-            return {"imported": 0, "skipped": True}
+    if skip_existing and has_feedings(session):
+        return {"imported": 0, "skipped": True}
 
     reader = FeedingCsvReader()
     feedings = reader.read_feedings(file)

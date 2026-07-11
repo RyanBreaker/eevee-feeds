@@ -10,6 +10,7 @@ os.environ.setdefault("AUTH_PASSWORD", "secret")
 
 import app.database  # noqa: E402
 import app.notifier  # noqa: E402
+import app.notification_service  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
 
@@ -36,10 +37,11 @@ def patch_engines(test_engine, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def reset_notifier(monkeypatch):
-    monkeypatch.setattr(app.notifier.notifier, "topic", None)
-    monkeypatch.setattr(app.notifier.notifier, "server", "https://ntfy.sh")
-    monkeypatch.setattr(app.notifier.notifier, "app_url", None)
-    monkeypatch.setattr(app.notifier.notifier, "thresholds", [2, 3, 4])
+    for service in (app.notification_service.notification_service, app.notifier.notifier.service):
+        monkeypatch.setattr(service, "topic", None)
+        monkeypatch.setattr(service, "server", "https://ntfy.sh")
+        monkeypatch.setattr(service, "app_url", None)
+        monkeypatch.setattr(service, "thresholds", [2, 3, 4])
     monkeypatch.setattr(app.notifier.notifier, "client", None)
     monkeypatch.setattr(app.notifier.notifier, "task", None)
     monkeypatch.setattr(app.notifier.notifier, "app_start_time", None)

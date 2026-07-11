@@ -9,11 +9,11 @@ from app.models import Feeding
 from app.notifier import FeedingNotifier, notifier
 
 
-def test_notifier_properties_delegate_to_service():
-    notifier.topic = "test-topic"
-    notifier.server = "https://example.com"
-    notifier.app_url = "https://app.example.com"
-    notifier.thresholds = [1, 2]
+def test_notifier_exposes_service_config():
+    notifier.service.topic = "test-topic"
+    notifier.service.server = "https://example.com"
+    notifier.service.app_url = "https://app.example.com"
+    notifier.service.thresholds = [1, 2]
 
     assert notifier.service.topic == "test-topic"
     assert notifier.service.server == "https://example.com"
@@ -38,7 +38,7 @@ async def test_send_test_payload(monkeypatch, test_engine):
         session.add(feeding)
         session.commit()
 
-    monkeypatch.setattr(notifier, "topic", "test-topic")
+    monkeypatch.setattr(notifier.service, "topic", "test-topic")
     monkeypatch.setattr(
         notifier,
         "client",
@@ -72,7 +72,7 @@ async def test_send_test_payload_under_threshold(monkeypatch, test_engine):
         session.add(feeding)
         session.commit()
 
-    monkeypatch.setattr(notifier, "topic", "test-topic")
+    monkeypatch.setattr(notifier.service, "topic", "test-topic")
     monkeypatch.setattr(
         notifier,
         "client",
@@ -89,7 +89,7 @@ async def test_send_test_payload_under_threshold(monkeypatch, test_engine):
 
 @pytest.mark.asyncio
 async def test_notifier_start_stop_with_topic(monkeypatch):
-    monkeypatch.setattr(notifier, "topic", "test-topic")
+    monkeypatch.setattr(notifier.service, "topic", "test-topic")
     monkeypatch.setattr(notifier, "client", None)
     monkeypatch.setattr(notifier, "task", None)
     monkeypatch.setattr(notifier, "app_start_time", None)
@@ -104,7 +104,7 @@ async def test_notifier_start_stop_with_topic(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_notifier_start_no_topic(monkeypatch):
-    monkeypatch.setattr(notifier, "topic", None)
+    monkeypatch.setattr(notifier.service, "topic", None)
     monkeypatch.setattr(notifier, "client", None)
     monkeypatch.setattr(notifier, "task", None)
     monkeypatch.setattr(notifier, "app_start_time", None)

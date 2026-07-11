@@ -21,3 +21,7 @@ def create_db_and_tables() -> None:
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+def session_factory() -> Session:
+    return Session(engine)

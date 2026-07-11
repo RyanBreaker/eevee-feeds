@@ -6,8 +6,10 @@ from typing import Callable, List, Optional
 import httpx
 from sqlmodel import Session, select
 
+from app.database import session_factory
 from app.models import Feeding, NotificationLog
 from app.period import format_duration
+from app.repository import get_last_feeding
 
 logger = logging.getLogger("uvicorn")
 
@@ -115,9 +117,7 @@ class NotificationService:
         session.commit()
 
     def get_status(self, session: Session) -> dict:
-        last_feeding = session.exec(
-            select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
-        ).first()
+        last_feeding = get_last_feeding(session)
 
         next_notification = None
         if self.topic and last_feeding:
@@ -146,19 +146,20 @@ class NotificationService:
             "next_notification": next_notification,
         }
 
-    async def send_test(self, session: Session, client: httpx.AsyncClient) -> bool:
-        last_feeding = session.exec(
-            select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
-        ).first()
+    async def send_test(
+        self, session: Session, client: Optional[httpx.AsyncClient] = None
+    ) -> bool:
+        last_feeding = get_last_feeding(session)
         if not last_feeding:
             return False
 
         now = datetime.now()
         gap = now - last_feeding.timestamp
         crossed = [t for t in self.thresholds if gap >= timedelta(hours=t)]
-        return await self._send_notification_for(
-            client, last_feeding, gap, crossed
-        )
+        if client is None:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                return await self._send_notification_for(client, last_feeding, gap, crossed)
+        return await self._send_notification_for(client, last_feeding, gap, crossed)
 
     async def run_check(
         self,
@@ -170,12 +171,11 @@ class NotificationService:
         if now is None:
             now = datetime.now()
 
-        last_feeding = session.exec(
-            select(Feeding).order_by(Feeding.timestamp.desc()).limit(1)
-        ).first()
+        last_feeding = get_last_feeding(session)
         if not last_feeding:
             logger.debug("No feedings logged yet; skipping notification check")
             return
+        assert last_feeding.id is not None
 
         for threshold in self.thresholds:
             threshold_time = last_feeding.timestamp + timedelta(hours=threshold)
@@ -196,10 +196,4 @@ class NotificationService:
                 self._record_sent(session, last_feeding.id, threshold)
 
 
-def _session_factory() -> Session:
-    from app.database import engine
-
-    return Session(engine)
-
-
-notification_service = NotificationService(_session_factory)
+notification_service = NotificationService(session_factory)

@@ -36,6 +36,10 @@ def get_last_feeding(session: Session) -> Optional[Feeding]:
     ).first()
 
 
+def has_feedings(session: Session) -> bool:
+    return session.exec(select(Feeding)).first() is not None
+
+
 def get_all_feedings(session: Session) -> list[Feeding]:
     return list(session.exec(select(Feeding).order_by(Feeding.timestamp)).all())
 

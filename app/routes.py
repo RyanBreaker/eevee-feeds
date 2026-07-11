@@ -1,11 +1,9 @@
-import math
 import os
 import secrets
 from datetime import date, datetime, time, timedelta
 from typing import Optional
 from urllib.parse import quote
 
-import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -16,8 +14,8 @@ from app.csv_import import import_feedings_from_text
 from app.csv_io import FeedingCsvWriter
 from app.database import get_session
 from app.models import Feeding, TargetConfig
-from app.notification_service import DEFAULT_SERVER, DEFAULT_THRESHOLDS, notification_service
-from app.period import format_duration, format_time, get_period_start, get_target_volume
+from app.notification_service import notification_service
+from app.period import format_duration, format_time, get_period_start, get_per_feed_target, get_target_volume
 from app.repository import (
     get_all_feedings,
     get_feeding_by_id,
@@ -133,7 +131,7 @@ def feed_target(
 ):
     config = get_or_create_config(session)
     target = get_target_volume(config, target_date)
-    per_feed = math.ceil(target / 8)
+    per_feed = get_per_feed_target(target)
     return {"target": target, "per_feed": per_feed}
 
 
@@ -288,8 +286,7 @@ async def test_notify(
         return RedirectResponse(
             url=f"/settings?message={quote(message)}", status_code=303
         )
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        ok = await notification_service.send_test(session, client)
+    ok = await notification_service.send_test(session)
     if ok:
         message = "Test notification sent successfully."
     else:

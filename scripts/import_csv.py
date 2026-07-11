@@ -1,6 +1,5 @@
 from app.csv_import import import_feedings_from_csv
 from app.database import create_db_and_tables, engine
-from app.repository import get_or_create_config
 from sqlmodel import Session
 
 
@@ -8,7 +7,6 @@ def main() -> None:
     create_db_and_tables()
 
     with Session(engine) as session:
-        get_or_create_config(session)
         with open("feedings.csv", newline="") as f:
             result = import_feedings_from_csv(session, f, skip_existing=True)
 

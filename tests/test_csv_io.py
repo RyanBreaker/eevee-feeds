@@ -2,6 +2,8 @@ import csv
 from datetime import datetime
 from io import StringIO
 
+import pytest
+
 from app.csv_io import FeedingCsvReader, FeedingCsvWriter, SCHEMA
 from app.models import Feeding
 
@@ -49,6 +51,13 @@ def test_reader_returns_feedings():
     assert feedings[0].timestamp == datetime(2026, 7, 3, 6, 0)
     assert feedings[0].po_amount == 30
     assert feedings[0].ng_amount == 10
+
+
+def test_reader_rejects_mismatched_total():
+    text = _make_csv_text([["Thu, Jul 3, 2026 6:00 AM", 30, 10, 99, ""]])
+    reader = FeedingCsvReader()
+    with pytest.raises(ValueError):
+        reader.read_rows(text)
 
 
 def test_writer_outputs_header_and_rows():

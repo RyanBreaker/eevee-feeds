@@ -37,11 +37,21 @@ class FeedingCsvReader:
         reader = csv.DictReader(source)
         rows: List[FeedingCsvRow] = []
         for row in reader:
+            po_amount = int(row["PO"])
+            ng_amount = int(row["NG"])
+            total_raw = row.get("Total")
+            if total_raw:
+                expected_total = po_amount + ng_amount
+                if int(total_raw) != expected_total:
+                    raise ValueError(
+                        f"CSV Total mismatch: {total_raw} != {expected_total} "
+                        f"for {row['Timestamp']}"
+                    )
             rows.append(
                 FeedingCsvRow(
                     timestamp=_parse_timestamp(row["Timestamp"]),
-                    po_amount=int(row["PO"]),
-                    ng_amount=int(row["NG"]),
+                    po_amount=po_amount,
+                    ng_amount=ng_amount,
                     notes=row.get("Notes") or None,
                 )
             )
@@ -79,7 +89,7 @@ class FeedingCsvWriter:
             return output.getvalue()
         return ""
 
-    def write_feedings(self, feedings: List[Feeding], output: Optional[StringIO] = None) -> str:
+    def write_feedings(self, feedings: List[Feeding], output: Optional[TextIO] = None) -> str:
         rows = [
             FeedingCsvRow(
                 timestamp=f.timestamp,

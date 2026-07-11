@@ -23,15 +23,16 @@ Split the domain into focused modules with single responsibilities, leaving `app
 | `app/repository.py` | Data access for `Feeding` and `TargetConfig`: lookups, defaults, and period-scoped queries. |
 | `app/summary.py` | Assembly of period summaries and chart data from repository results. |
 | `app/notification_service.py` | Threshold parsing, notification status, test sends, and the background check that decides when to send ntfy alerts. |
+| `app/csv_import.py` | Orchestration of CSV import: uses the reader and repository. |
 | `app/csv_io.py` | Shared CSV schema, `FeedingCsvReader`, and `FeedingCsvWriter`. |
 | `app/notifier.py` | Async lifecycle wrapper around `NotificationService` (start/stop background loop). |
-| `app/routes.py` | HTTP routing, auth/HTMX response handling, and simple request validation only. |
+| `app/routes.py` | Thin HTTP adapter. |
 
 ### Dependencies between modules
 
 - `app/routes.py` depends on `app.repository`, `app.summary`, `app.notification_service`, `app.csv_import`, and `app.csv_io`.
 - `app.summary` depends on `app.repository` and `app.period`.
-- `app.notification_service` depends on `app.models` and `app.period`.
+- `app.notification_service` depends on `app.repository` and `app.period`.
 - `app.csv_io` depends only on `app.models`.
 - `app.csv_import` depends on `app.csv_io` and `app.repository`.
 

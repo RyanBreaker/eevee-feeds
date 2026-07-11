@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, time, timedelta, date
 from typing import Sequence
 
@@ -41,6 +42,10 @@ def get_target_volume(config, current_date: date) -> int:
         return config.start_volume
     increments = count_increment_days(config.start_date, current_date, config.increment_day)
     return config.start_volume + increments * config.increment
+
+
+def get_per_feed_target(target_volume: int, feeds_per_day: int = 8) -> int:
+    return math.ceil(target_volume / feeds_per_day)
 
 
 def format_time(dt: datetime) -> str:
