@@ -54,12 +54,6 @@ def get_feedings_for_period(session: Session, period_start: datetime) -> list[Fe
     return list(session.exec(statement).all())
 
 
-def _get_most_recent_feeding_before(
-    session: Session, timestamp: datetime
-) -> Optional[Feeding]:
-    return get_previous_feeding(session, timestamp)
-
-
 def get_previous_feeding(
     session: Session,
     timestamp: datetime,
@@ -82,7 +76,7 @@ def get_previous_feeding(
 def get_feedings_with_gaps(
     session: Session, period_start: datetime
 ) -> list[tuple[Feeding, Optional[timedelta]]]:
-    previous_feeding = _get_most_recent_feeding_before(session, period_start)
+    previous_feeding = get_previous_feeding(session, period_start)
 
     feedings = get_feedings_for_period(session, period_start)
     result = []
@@ -106,7 +100,7 @@ def get_feeding_gap(session: Session, feeding: Feeding) -> Optional[timedelta]:
     ).first()
 
     if not previous_feeding:
-        previous_feeding = _get_most_recent_feeding_before(session, period_start)
+        previous_feeding = get_previous_feeding(session, period_start)
 
     if previous_feeding:
         return feeding.timestamp - previous_feeding.timestamp

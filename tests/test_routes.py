@@ -287,12 +287,22 @@ def test_feed_target_requires_auth(client):
     assert r.headers["location"] == "/login"
 
 
-def test_feed_target_returns_target_and_per_feed(client):
+def test_feed_target_returns_target_and_per_feed(client, test_engine):
     client.post("/login", data={"username": "admin", "password": "secret"})
-    r = client.get("/api/feed-target?date=2026-07-03")
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 3, 5, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+    r = client.get("/api/feed-target?timestamp=2026-07-03T08:00")
     assert r.status_code == 200
     data = r.json()
     assert data["target"] == 520
+    # 3-hour interval -> 520 * 3 / 24 = 65
     assert data["per_feed"] == 65
 
 
@@ -302,13 +312,30 @@ def test_feed_target_rounds_up(client, test_engine):
         config = get_or_create_config(session)
         config.start_volume = 550
         session.add(config)
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 3, 5, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
         session.commit()
 
-    r = client.get("/api/feed-target?date=2026-07-03")
+    r = client.get("/api/feed-target?timestamp=2026-07-03T08:00")
     assert r.status_code == 200
     data = r.json()
     assert data["target"] == 550
+    # 3-hour interval -> 550 * 3 / 24 = 68.75 -> 69
     assert data["per_feed"] == 69
+
+
+def test_feed_target_falls_back_to_static_per_feed(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/api/feed-target?timestamp=2026-07-03T08:00")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["target"] == 520
+    # No prior feeding -> ceil(520 / 8) = 65
+    assert data["per_feed"] == 65
 
 
 def test_feed_target_with_previous_feeding(client, test_engine):
