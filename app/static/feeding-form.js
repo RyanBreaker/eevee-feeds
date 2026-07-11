@@ -3,14 +3,19 @@ function initFeedingForm(form) {
   const totalInput = form.querySelector('input[name="per_feed_total"]');
   const ngInput = form.querySelector('input[name="ng_amount"]');
   const poInput = form.querySelector('input[name="po_amount"]');
+  const feedingIdInput = form.querySelector('input[name="feeding_id"]');
   if (!timestampInput || !totalInput || !ngInput || !poInput) return;
 
   async function updateTotalFromDate() {
     const ts = timestampInput.value;
     if (!ts) return;
-    const dateStr = ts.slice(0, 10);
+    const params = new URLSearchParams();
+    params.append('timestamp', ts);
+    if (feedingIdInput && feedingIdInput.value) {
+      params.append('feeding_id', feedingIdInput.value);
+    }
     try {
-      const resp = await fetch('/api/feed-target?date=' + encodeURIComponent(dateStr));
+      const resp = await fetch('/api/feed-target?' + params.toString());
       if (!resp.ok) return;
       const data = await resp.json();
       totalInput.value = data.per_feed;

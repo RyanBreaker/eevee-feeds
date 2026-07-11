@@ -1,6 +1,6 @@
 import math
 from datetime import datetime, time, timedelta, date
-from typing import Sequence
+from typing import Optional, Sequence
 
 
 def get_period_start(timestamp: datetime) -> datetime:
@@ -46,6 +46,27 @@ def get_target_volume(config, current_date: date) -> int:
 
 def get_per_feed_target(target_volume: int, feeds_per_day: int = 8) -> int:
     return math.ceil(target_volume / feeds_per_day)
+
+
+def get_target_feed_amount(
+    target_volume: int,
+    selected_timestamp: datetime,
+    previous_timestamp: Optional[datetime] = None,
+) -> int:
+    """Return the interval-aware recommended volume for a single Feeding.
+
+    The elapsed interval is rounded to the nearest 30 minutes (ties round up),
+    clamped to a [1, 4] hour range, and then prorated against the 24-hour
+    target volume. When there is no previous Feeding, fall back to the static
+    per-feed target (target_volume / 8, rounded up).
+    """
+    if previous_timestamp is None:
+        return get_per_feed_target(target_volume)
+
+    interval_hours = (selected_timestamp - previous_timestamp).total_seconds() / 3600
+    rounded_hours = math.floor(interval_hours * 2 + 0.5) / 2
+    clamped_hours = max(1.0, min(4.0, rounded_hours))
+    return round(target_volume * clamped_hours / 24)
 
 
 def format_time(dt: datetime) -> str:

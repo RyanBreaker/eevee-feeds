@@ -13,6 +13,7 @@ from app.repository import (
     get_feedings_with_gaps,
     get_last_feeding,
     get_or_create_config,
+    get_previous_feeding,
 )
 
 
@@ -198,3 +199,45 @@ def test_get_feeding_gap_across_periods(session):
 
     gap = get_feeding_gap(session, feeding2)
     assert gap == timedelta(hours=22)
+
+
+def test_get_previous_feeding_returns_most_recent_before_timestamp(session):
+    feeding1 = Feeding(
+        timestamp=datetime(2026, 7, 10, 8, 0), po_amount=10, ng_amount=20
+    )
+    feeding2 = Feeding(
+        timestamp=datetime(2026, 7, 10, 10, 0), po_amount=15, ng_amount=25
+    )
+    session.add_all([feeding1, feeding2])
+    session.commit()
+
+    previous = get_previous_feeding(session, datetime(2026, 7, 10, 12, 0))
+    assert previous is not None
+    assert previous.timestamp == datetime(2026, 7, 10, 10, 0)
+
+
+def test_get_previous_feeding_excludes_given_feeding_id(session):
+    feeding1 = Feeding(
+        timestamp=datetime(2026, 7, 10, 8, 0), po_amount=10, ng_amount=20
+    )
+    feeding2 = Feeding(
+        timestamp=datetime(2026, 7, 10, 10, 0), po_amount=15, ng_amount=25
+    )
+    session.add_all([feeding1, feeding2])
+    session.commit()
+
+    previous = get_previous_feeding(
+        session, datetime(2026, 7, 10, 12, 0), exclude_feeding_id=feeding2.id
+    )
+    assert previous is not None
+    assert previous.timestamp == datetime(2026, 7, 10, 8, 0)
+
+
+def test_get_previous_feeding_returns_none_when_no_match(session):
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 10, 10, 0), po_amount=10, ng_amount=20
+    )
+    session.add(feeding)
+    session.commit()
+
+    assert get_previous_feeding(session, datetime(2026, 7, 10, 8, 0)) is None

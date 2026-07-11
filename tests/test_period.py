@@ -1,7 +1,15 @@
 from datetime import date, datetime, timedelta
 
 from app.models import TargetConfig
-from app.period import format_duration, format_time, get_period_label, get_period_start, get_target_volume, linear_trend
+from app.period import (
+    format_duration,
+    format_time,
+    get_period_label,
+    get_period_start,
+    get_target_feed_amount,
+    get_target_volume,
+    linear_trend,
+)
 
 
 def test_format_duration_minutes_only():
@@ -82,3 +90,43 @@ def test_linear_trend_flat():
 
 def test_linear_trend_empty():
     assert linear_trend([]) == []
+
+
+def test_get_target_feed_amount_fallback_with_no_previous_feeding():
+    selected = datetime(2026, 7, 9, 12, 0)
+    assert get_target_feed_amount(520, selected) == 65
+
+
+def test_get_target_feed_amount_rounds_interval_to_nearest_30_minutes():
+    selected = datetime(2026, 7, 9, 12, 0)
+    # 2 hours 10 minutes -> rounds to 2.0 hours
+    previous = datetime(2026, 7, 9, 9, 50)
+    assert get_target_feed_amount(480, selected, previous) == 40
+
+
+def test_get_target_feed_amount_rounds_interval_ties_up():
+    selected = datetime(2026, 7, 9, 12, 0)
+    # 2 hours 15 minutes -> exactly halfway, rounds up to 2.5 hours
+    previous = datetime(2026, 7, 9, 9, 45)
+    assert get_target_feed_amount(480, selected, previous) == 50
+
+
+def test_get_target_feed_amount_floors_at_one_hour():
+    selected = datetime(2026, 7, 9, 12, 0)
+    previous = datetime(2026, 7, 9, 11, 15)
+    # 45 minutes -> rounds to 1.0 hour after floor
+    assert get_target_feed_amount(480, selected, previous) == 20
+
+
+def test_get_target_feed_amount_caps_at_four_hours():
+    selected = datetime(2026, 7, 9, 12, 0)
+    previous = datetime(2026, 7, 8, 20, 0)
+    # 16 hours -> capped to 4.0 hours
+    assert get_target_feed_amount(480, selected, previous) == 80
+
+
+def test_get_target_feed_amount_rounds_amount():
+    selected = datetime(2026, 7, 9, 12, 0)
+    # Exactly 3 hours -> 520 * 3 / 24 = 65
+    previous = datetime(2026, 7, 9, 9, 0)
+    assert get_target_feed_amount(520, selected, previous) == 65

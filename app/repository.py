@@ -57,11 +57,25 @@ def get_feedings_for_period(session: Session, period_start: datetime) -> list[Fe
 def _get_most_recent_feeding_before(
     session: Session, timestamp: datetime
 ) -> Optional[Feeding]:
+    return get_previous_feeding(session, timestamp)
+
+
+def get_previous_feeding(
+    session: Session,
+    timestamp: datetime,
+    exclude_feeding_id: Optional[int] = None,
+) -> Optional[Feeding]:
+    """Return the most recent Feeding strictly before ``timestamp``.
+
+    If ``exclude_feeding_id`` is provided, that Feeding is omitted from the
+    search so that editing a Feeding does not use the feeding itself as the
+    reference point.
+    """
+    statement = select(Feeding).where(Feeding.timestamp < timestamp)
+    if exclude_feeding_id is not None:
+        statement = statement.where(Feeding.id != exclude_feeding_id)
     return session.exec(
-        select(Feeding)
-        .where(Feeding.timestamp < timestamp)
-        .order_by(Feeding.timestamp.desc())
-        .limit(1)
+        statement.order_by(Feeding.timestamp.desc()).limit(1)
     ).first()
 
 

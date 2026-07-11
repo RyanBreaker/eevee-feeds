@@ -14,13 +14,20 @@ from app.csv_io import FeedingCsvWriter
 from app.database import get_session
 from app.models import Feeding, TargetConfig
 from app.notification_service import notification_service
-from app.period import format_duration, format_time, get_period_start, get_per_feed_target, get_target_volume
+from app.period import (
+    format_duration,
+    format_time,
+    get_period_start,
+    get_target_feed_amount,
+    get_target_volume,
+)
 from app.repository import (
     get_all_feedings,
     get_feeding_by_id,
     get_feeding_gap,
     get_last_feeding,
     get_or_create_config,
+    get_previous_feeding,
 )
 from app.summary import get_chart_data, get_current_period_start, get_period_summary
 
@@ -124,13 +131,29 @@ def summary_cards(
 
 @router.get("/api/feed-target")
 def feed_target(
-    target_date: date = Query(..., alias="date"),
+    target_date: Optional[date] = Query(None, alias="date"),
+    target_timestamp: Optional[datetime] = Query(None, alias="timestamp"),
+    feeding_id: Optional[int] = Query(None),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
+    if target_timestamp:
+        selected_timestamp = target_timestamp
+    elif target_date:
+        selected_timestamp = datetime.combine(target_date, time(6, 0))
+    else:
+        selected_timestamp = datetime.now()
+
     config = get_or_create_config(session)
-    target = get_target_volume(config, target_date)
-    per_feed = get_per_feed_target(target)
+    period_start = get_period_start(selected_timestamp)
+    target = get_target_volume(config, period_start.date())
+    previous_feeding = get_previous_feeding(
+        session, selected_timestamp, exclude_feeding_id=feeding_id
+    )
+    previous_timestamp = previous_feeding.timestamp if previous_feeding else None
+    per_feed = get_target_feed_amount(
+        target, selected_timestamp, previous_timestamp
+    )
     return {"target": target, "per_feed": per_feed}
 
 

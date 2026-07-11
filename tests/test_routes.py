@@ -311,6 +311,98 @@ def test_feed_target_rounds_up(client, test_engine):
     assert data["per_feed"] == 69
 
 
+def test_feed_target_with_previous_feeding(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 9, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+    r = client.get("/api/feed-target?timestamp=2026-07-09T12:00")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["target"] == 560
+    # 3-hour interval -> 560 * 3 / 24 = 70
+    assert data["per_feed"] == 70
+
+
+def test_feed_target_editing_excludes_current_feeding(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        earlier = Feeding(
+            timestamp=datetime(2026, 7, 9, 6, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        current = Feeding(
+            timestamp=datetime(2026, 7, 9, 9, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(earlier)
+        session.add(current)
+        session.commit()
+        current_id = current.id
+
+    r = client.get(
+        f"/api/feed-target?timestamp=2026-07-09T12:00&feeding_id={current_id}"
+    )
+    assert r.status_code == 200
+    data = r.json()
+    # Excluding the current feeding, the previous feeding is at 6:00.
+    # The 6-hour interval is capped to 4 hours -> 560 * 4 / 24 = 93.
+    assert data["per_feed"] == 93
+
+
+def test_feed_target_backdated_timestamp(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        earlier = Feeding(
+            timestamp=datetime(2026, 7, 9, 9, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        later = Feeding(
+            timestamp=datetime(2026, 7, 9, 15, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(earlier)
+        session.add(later)
+        session.commit()
+
+    r = client.get("/api/feed-target?timestamp=2026-07-09T12:00")
+    assert r.status_code == 200
+    data = r.json()
+    # The previous feeding strictly before 12:00 is at 9:00,
+    # so the interval is 3 hours -> 560 * 3 / 24 = 70.
+    assert data["per_feed"] == 70
+
+
+def test_feed_target_period_boundary(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        # Feeding just before the 6:00 AM boundary of the next period.
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 5, 30),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+    r = client.get("/api/feed-target?timestamp=2026-07-09T06:30")
+    assert r.status_code == 200
+    data = r.json()
+    # Previous feeding is in the previous period but still counts.
+    # Interval is 1 hour -> 560 * 1 / 24 = 23.
+    assert data["per_feed"] == 23
+
+
 def test_settings_page_shows_backup_disabled(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     r = client.get("/settings")
