@@ -7,6 +7,15 @@
     <div class="summary-label">Remaining</div>
     <div class="summary-value">{{ summary.remaining }} ml</div>
   </div>
+  {% if summary.target_variance is not none %}
+  <div class="summary-card">
+    <div class="summary-label">vs Target</div>
+    <div class="summary-value">
+      {{ "%+d" | format(summary.target_variance) }} ml
+      <div class="summary-sub">{{ summary.total }} / {{ summary.target_total }} ml</div>
+    </div>
+  </div>
+  {% endif %}
   <div class="summary-card">
     <div class="summary-label">PO / NG</div>
     <div class="summary-value">{{ summary.po }} / {{ summary.ng }} ml</div>

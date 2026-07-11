@@ -43,6 +43,40 @@ def test_get_period_summary(session):
     assert summary["avg_gap"] is None
 
 
+def test_get_period_summary_includes_target_variance(session):
+    config = get_or_create_config(session)
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 3, 8, 0),
+        po_amount=80,
+        ng_amount=10,
+        target_per_feed=70,
+    )
+    session.add(feeding)
+    session.commit()
+
+    period_start = datetime(2026, 7, 3, 6, 0)
+    summary = get_period_summary(session, config, period_start)
+
+    assert summary["total"] == 90
+    assert summary["target_total"] == 70
+    assert summary["target_variance"] == 20
+
+
+def test_get_period_summary_target_variance_none_without_targets(session):
+    config = get_or_create_config(session)
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 3, 8, 0), po_amount=30, ng_amount=10
+    )
+    session.add(feeding)
+    session.commit()
+
+    period_start = datetime(2026, 7, 3, 6, 0)
+    summary = get_period_summary(session, config, period_start)
+
+    assert summary["target_total"] == 0
+    assert summary["target_variance"] is None
+
+
 def test_get_period_summary_for_past_period_has_no_next_window(session):
     config = get_or_create_config(session)
     feeding = Feeding(

@@ -232,6 +232,26 @@ def test_summary_cards_route(client, test_engine):
     assert "10 ml" in r.text
 
 
+def test_summary_cards_show_vs_target_when_targets_present(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime.now() - timedelta(hours=3),
+            po_amount=80,
+            ng_amount=10,
+            target_per_feed=70,
+        )
+        session.add(feeding)
+        session.commit()
+
+    r = client.get("/summary-cards")
+    assert r.status_code == 200
+    assert "vs Target" in r.text
+    assert "+20 ml" in r.text
+    assert "90 / 70 ml" in r.text
+
+
 def test_next_feeding_window_on_today_page(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
 

@@ -156,6 +156,13 @@ h2 {
   color: var(--text);
 }
 
+.summary-sub {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
 .form-row {
   display: flex;
   flex-wrap: wrap;
