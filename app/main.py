@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import AuthRequiredException
+from app.backup_scheduler import backup_scheduler
 from app.database import create_db_and_tables
 from app.notifier import notifier
 from app.routes import router
@@ -24,10 +25,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting app. TZ=%s, current local time=%s", tz, local_time)
     create_db_and_tables()
     notifier.start()
+    backup_scheduler.start()
     try:
         yield
     finally:
         await notifier.stop()
+        await backup_scheduler.stop()
 
 
 app = FastAPI(lifespan=lifespan)

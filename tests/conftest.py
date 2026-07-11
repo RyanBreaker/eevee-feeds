@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
@@ -11,6 +12,8 @@ os.environ.setdefault("AUTH_PASSWORD", "secret")
 import app.database  # noqa: E402
 import app.notifier  # noqa: E402
 import app.notification_service  # noqa: E402
+import app.backup_service  # noqa: E402
+import app.backup_scheduler  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 
 
@@ -45,6 +48,23 @@ def reset_notifier(monkeypatch):
     monkeypatch.setattr(app.notifier.notifier, "client", None)
     monkeypatch.setattr(app.notifier.notifier, "task", None)
     monkeypatch.setattr(app.notifier.notifier, "app_start_time", None)
+
+
+@pytest.fixture(autouse=True)
+def reset_backup_service(monkeypatch):
+    service = app.backup_service.backup_service
+    monkeypatch.setattr(service, "key_id", None)
+    monkeypatch.setattr(service, "application_key", None)
+    monkeypatch.setattr(service, "bucket_name", None)
+    monkeypatch.setattr(service, "_enabled", False)
+
+
+@pytest.fixture(autouse=True)
+def reset_backup_scheduler(monkeypatch):
+    scheduler = app.backup_scheduler.backup_scheduler
+    monkeypatch.setattr(scheduler, "task", None)
+    monkeypatch.setattr(scheduler, "interval", 60)
+    monkeypatch.setattr(scheduler, "now_fn", datetime.now)
 
 
 @pytest.fixture

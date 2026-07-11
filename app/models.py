@@ -32,3 +32,11 @@ class NotificationLog(SQLModel, table=True):
     feeding_id: int = Field(index=True)
     threshold_hours: int = Field(index=True)
     sent_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BackupLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    period_start: datetime = Field(index=True)
+    run_timestamp: datetime
+    object_key: str
+    success: bool

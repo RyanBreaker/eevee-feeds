@@ -35,6 +35,39 @@
 </section>
 
 <section class="section">
+  <h2>Backup</h2>
+  {% if backup.enabled %}
+  <p class="help-text">Backups are enabled to Backblaze B2.</p>
+  <ul class="settings-list">
+    <li><strong>Bucket:</strong> {{ backup.bucket_name }}</li>
+    <li>
+      <strong>Last run:</strong>
+      {% if backup.last_run %}
+        {{ backup.last_run.strftime('%Y-%m-%d %I:%M %p UTC') }}
+      {% else %}
+        Never
+      {% endif %}
+    </li>
+    <li>
+      <strong>Last result:</strong>
+      {% if backup.last_result %}
+        {{ backup.last_result }}
+      {% else %}
+        No backups yet
+      {% endif %}
+    </li>
+  </ul>
+  <form method="post" action="/settings/backup" class="settings-form">
+    <button type="submit">Back up now</button>
+  </form>
+  {% else %}
+  <p class="help-text">
+    Backups are disabled. Set <code>B2_KEY_ID</code>, <code>B2_APPLICATION_KEY</code>, and <code>B2_BUCKET_NAME</code> to enable automatic backups.
+  </p>
+  {% endif %}
+</section>
+
+<section class="section">
   <h2>Export CSV</h2>
   <p class="help-text">Download a CSV of all feedings.</p>
   <a href="/export" class="button">Export Feedings</a>

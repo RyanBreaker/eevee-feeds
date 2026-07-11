@@ -1,14 +1,14 @@
 import json
 from datetime import datetime, timedelta
-
-from app.period import format_time
 from urllib.parse import unquote
 
 import httpx
 from sqlmodel import Session
 
+from app.backup_service import backup_service
 from app.models import Feeding, NotificationLog
 from app.notification_service import notification_service
+from app.period import format_time
 from app.repository import get_or_create_config
 from app.summary import get_chart_data
 
@@ -272,3 +272,76 @@ def test_feed_target_rounds_up(client, test_engine):
     data = r.json()
     assert data["target"] == 550
     assert data["per_feed"] == 69
+
+
+def test_settings_page_shows_backup_disabled(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert "Backups are disabled" in r.text
+
+
+def test_settings_page_shows_backup_enabled(client, monkeypatch):
+    def mock_status(session):
+        return {
+            "enabled": True,
+            "bucket_name": "test-bucket",
+            "last_run": None,
+            "last_result": None,
+            "last_object_key": None,
+            "last_error": None,
+        }
+
+    monkeypatch.setattr(backup_service, "get_status", mock_status)
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert "Backups are enabled" in r.text
+    assert "test-bucket" in r.text
+    assert "Back up now" in r.text
+
+
+def test_manual_backup_requires_auth(client):
+    r = client.post("/settings/backup", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "/login"
+
+
+def test_manual_backup_success(client, monkeypatch):
+    monkeypatch.setattr(backup_service, "_enabled", True)
+
+    async def mock_run_backup(session, now=None):
+        return True
+
+    monkeypatch.setattr(backup_service, "run_backup", mock_run_backup)
+
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post("/settings/backup", follow_redirects=False)
+    assert r.status_code == 303
+    assert "completed successfully" in unquote(r.headers["location"])
+
+
+def test_manual_backup_failure(client, monkeypatch):
+    monkeypatch.setattr(backup_service, "_enabled", True)
+
+    async def mock_run_backup(session, now=None):
+        return False
+
+    monkeypatch.setattr(backup_service, "run_backup", mock_run_backup)
+
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post("/settings/backup", follow_redirects=False)
+    assert r.status_code == 303
+    assert "Backup failed" in unquote(r.headers["location"])
+
+
+def test_manual_backup_disabled(client, monkeypatch):
+    async def mock_run_backup(session, now=None):
+        return False
+
+    monkeypatch.setattr(backup_service, "run_backup", mock_run_backup)
+
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post("/settings/backup", follow_redirects=False)
+    assert r.status_code == 303
+    assert "Backup is not configured" in unquote(r.headers["location"])

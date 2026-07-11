@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 
+from app.backup_service import backup_service
 from app.auth import require_auth, verify_credentials
 from app.csv_import import import_feedings_from_text
 from app.csv_io import FeedingCsvWriter
@@ -267,9 +268,16 @@ def settings_page(
 ):
     config = get_or_create_config(session)
     notification = notification_service.get_status(session)
+    backup = backup_service.get_status(session)
     return templates.TemplateResponse(
         "settings.html",
-        {"request": request, "config": config, "message": message, "notification": notification},
+        {
+            "request": request,
+            "config": config,
+            "message": message,
+            "notification": notification,
+            "backup": backup,
+        },
     )
 
 
@@ -289,6 +297,25 @@ async def test_notify(
         message = "Test notification sent successfully."
     else:
         message = "Failed to send test notification. Check the server logs."
+    return RedirectResponse(url=f"/settings?message={quote(message)}", status_code=303)
+
+
+@router.post("/settings/backup")
+async def manual_backup(
+    request: Request,
+    session: Session = Depends(get_session),
+    _: Optional[str] = Depends(require_auth),
+):
+    if not backup_service.enabled:
+        message = "Backup is not configured: set B2_KEY_ID, B2_APPLICATION_KEY, and B2_BUCKET_NAME."
+        return RedirectResponse(
+            url=f"/settings?message={quote(message)}", status_code=303
+        )
+    ok = await backup_service.run_backup(session)
+    if ok:
+        message = "Backup completed successfully."
+    else:
+        message = "Backup failed. Check the server logs."
     return RedirectResponse(url=f"/settings?message={quote(message)}", status_code=303)
 
 
