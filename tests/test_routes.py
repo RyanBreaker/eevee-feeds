@@ -286,6 +286,50 @@ def test_next_feeding_window_on_today_page(client):
     assert f"{format_time(window_start)}-{format_time(window_end)}" in response.text
 
 
+def test_index_includes_mobile_feeding_cards(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    feeding_time = datetime.now().replace(second=0, microsecond=0)
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": feeding_time.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert 'class="feeding-cards"' in response.text
+    assert 'class="feeding-card"' in response.text
+    assert 'class="feeding-card-face"' in response.text
+    assert 'class="feeding-card-toggle"' in response.text
+    assert 'class="feeding-card-details"' in response.text
+
+
+def test_mobile_feeding_cards_render_feeding_data(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    feeding_time = datetime.now().replace(second=0, microsecond=0)
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": feeding_time.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "30",
+            "ng_amount": "10",
+            "notes": "via tube",
+        },
+    )
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert 'class="badge badge-po"' in response.text
+    assert 'PO 30ml' in response.text
+    assert 'NG 10ml' in response.text
+    assert 'Total 40ml' in response.text
+    assert "via tube" in response.text
+    assert 'class="feeding-card-actions"' in response.text
+
+
 def test_index_shows_po_percentage_per_feeding(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     feeding_time = datetime.now().replace(second=0, microsecond=0)

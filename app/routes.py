@@ -128,6 +128,7 @@ def index(
             "previous_period": (selected_period - timedelta(days=1)).date().isoformat(),
             "next_period": (selected_period + timedelta(days=1)).date().isoformat(),
             "is_current": is_current,
+            "now": datetime.now(),
         },
     )
 
@@ -221,6 +222,7 @@ def create_feeding(
             "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
+            "now": datetime.now(),
         },
     )
 
@@ -325,6 +327,7 @@ def delete_feeding(
             "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
+            "now": datetime.now(),
         },
     )
 
