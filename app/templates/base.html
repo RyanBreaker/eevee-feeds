@@ -32,9 +32,37 @@
       });
     }
 
+    function updateFeedCountdowns() {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      document.querySelectorAll('.feed-countdown').forEach(function(el) {
+        const windowStart = parseInt(el.dataset.windowStart, 10);
+        const windowEnd = parseInt(el.dataset.windowEnd, 10);
+        let text = '';
+        let statusClass = '';
+        if (nowSeconds < windowStart) {
+          text = 'in ' + formatDuration(windowStart - nowSeconds);
+        } else if (nowSeconds <= windowEnd) {
+          text = 'started ' + formatDuration(nowSeconds - windowStart) + ' ago';
+          statusClass = 'feed-countdown-green';
+        } else {
+          text = 'overdue by ' + formatDuration(nowSeconds - windowEnd);
+          statusClass = 'feed-countdown-red';
+        }
+        el.textContent = text;
+        el.classList.remove('feed-countdown-green', 'feed-countdown-red');
+        if (statusClass) {
+          el.classList.add(statusClass);
+        }
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       updateAutoDurations();
-      setInterval(updateAutoDurations, 10000);
+      updateFeedCountdowns();
+      setInterval(function() {
+        updateAutoDurations();
+        updateFeedCountdowns();
+      }, 10000);
     });
   </script>
 </head>

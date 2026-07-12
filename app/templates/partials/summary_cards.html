@@ -37,8 +37,15 @@
   </div>
   {% if summary.next_feeding_window %}
   <div class="summary-card">
-    <div class="summary-label">Next feeding window</div>
-    <div class="summary-value">{{ summary.next_feeding_window[0] | format_time }}-{{ summary.next_feeding_window[1] | format_time }}</div>
+    <div class="summary-label">Next feed</div>
+    <div class="summary-value">
+      <span class="feed-countdown {{ summary.next_feeding_countdown_class }}"
+            data-window-start="{{ summary.next_feeding_window_start_ts }}"
+            data-window-end="{{ summary.next_feeding_window_end_ts }}">
+        {{ summary.next_feeding_countdown_text }}
+      </span>
+      <div class="summary-sub">{{ summary.next_feeding_window[0] | format_time }}-{{ summary.next_feeding_window[1] | format_time }}</div>
+    </div>
   </div>
   {% endif %}
 </div>

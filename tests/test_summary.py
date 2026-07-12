@@ -156,6 +156,12 @@ def test_get_period_summary_for_current_period_includes_next_window(session):
     start, end = summary["next_feeding_window"]
     assert start == feeding_time + timedelta(hours=2)
     assert end == feeding_time + timedelta(hours=4)
+    assert summary["next_feeding_countdown_text"].startswith("started ")
+    assert summary["next_feeding_countdown_text"].endswith(" ago")
+    assert summary["next_feeding_countdown_class"] == "feed-countdown-green"
+    assert isinstance(summary["next_feeding_window_start_ts"], int)
+    assert isinstance(summary["next_feeding_window_end_ts"], int)
+    assert summary["next_feeding_window_start_ts"] < summary["next_feeding_window_end_ts"]
 
 
 def test_get_period_summary_with_multiple_feedings_computes_avg_gap(session):

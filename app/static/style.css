@@ -193,6 +193,18 @@ h2 {
   background-color: var(--danger);
 }
 
+.feed-countdown {
+  color: var(--text);
+}
+
+.feed-countdown-green {
+  color: #16a34a;
+}
+
+.feed-countdown-red {
+  color: var(--danger);
+}
+
 .form-row {
   display: flex;
   flex-wrap: wrap;

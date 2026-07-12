@@ -3,7 +3,13 @@ from datetime import datetime, timedelta
 from sqlmodel import Session
 
 from app.models import TargetConfig
-from app.period import get_period_label, get_period_start, get_target_volume, linear_trend
+from app.period import (
+    format_feeding_countdown,
+    get_period_label,
+    get_period_start,
+    get_target_volume,
+    linear_trend,
+)
 from app.repository import (
     attach_effective_targets,
     get_feedings_with_gaps,
@@ -49,6 +55,10 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
 
     time_since_last = None
     next_feeding_window = None
+    next_feeding_countdown_text = None
+    next_feeding_countdown_class = ""
+    next_feeding_window_start_ts = None
+    next_feeding_window_end_ts = None
     if period_start == get_current_period_start():
         last_feeding = get_last_feeding(session)
         if last_feeding:
@@ -57,6 +67,15 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
                 last_feeding.timestamp + timedelta(hours=2),
                 last_feeding.timestamp + timedelta(hours=4),
             )
+            next_feeding_countdown_text, next_feeding_countdown_class = (
+                format_feeding_countdown(
+                    next_feeding_window[0], next_feeding_window[1]
+                )
+            )
+            next_feeding_window_start_ts = int(
+                next_feeding_window[0].timestamp()
+            )
+            next_feeding_window_end_ts = int(next_feeding_window[1].timestamp())
 
     return {
         "po": po,
@@ -72,6 +91,10 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "avg_gap": avg_gap,
         "time_since_last": time_since_last,
         "next_feeding_window": next_feeding_window,
+        "next_feeding_countdown_text": next_feeding_countdown_text,
+        "next_feeding_countdown_class": next_feeding_countdown_class,
+        "next_feeding_window_start_ts": next_feeding_window_start_ts,
+        "next_feeding_window_end_ts": next_feeding_window_end_ts,
     }
 
 

@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from app.models import TargetConfig
 from app.period import (
     format_duration,
+    format_feeding_countdown,
     format_time,
     get_period_label,
     get_period_start,
@@ -23,6 +24,42 @@ def test_format_duration_hours_and_minutes():
 
 def test_format_duration_zero():
     assert format_duration(timedelta(hours=0)) == "0m"
+
+
+def test_format_feeding_countdown_before_window():
+    window_start = datetime(2026, 7, 9, 12, 0)
+    window_end = datetime(2026, 7, 9, 14, 0)
+    now = datetime(2026, 7, 9, 11, 30)
+    text, status = format_feeding_countdown(window_start, window_end, now)
+    assert text == "in 30m"
+    assert status == ""
+
+
+def test_format_feeding_countdown_during_window():
+    window_start = datetime(2026, 7, 9, 12, 0)
+    window_end = datetime(2026, 7, 9, 14, 0)
+    now = datetime(2026, 7, 9, 12, 30)
+    text, status = format_feeding_countdown(window_start, window_end, now)
+    assert text == "started 30m ago"
+    assert status == "feed-countdown-green"
+
+
+def test_format_feeding_countdown_overdue():
+    window_start = datetime(2026, 7, 9, 12, 0)
+    window_end = datetime(2026, 7, 9, 14, 0)
+    now = datetime(2026, 7, 9, 15, 0)
+    text, status = format_feeding_countdown(window_start, window_end, now)
+    assert text == "overdue by 1h 0m"
+    assert status == "feed-countdown-red"
+
+
+def test_format_feeding_countdown_at_window_start():
+    window_start = datetime(2026, 7, 9, 12, 0)
+    window_end = datetime(2026, 7, 9, 14, 0)
+    now = window_start
+    text, status = format_feeding_countdown(window_start, window_end, now)
+    assert text == "started 0m ago"
+    assert status == "feed-countdown-green"
 
 
 def test_get_period_start_before_6am():

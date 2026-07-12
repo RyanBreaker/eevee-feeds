@@ -279,7 +279,10 @@ def test_next_feeding_window_on_today_page(client):
 
     response = client.get("/")
     assert response.status_code == 200
-    assert "Next feeding window" in response.text
+    assert "Next feed" in response.text
+    assert "started " in response.text
+    assert " ago" in response.text
+    assert "feed-countdown-green" in response.text
     assert f"{format_time(window_start)}-{format_time(window_end)}" in response.text
 
 

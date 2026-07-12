@@ -120,3 +120,24 @@ def format_duration(td: timedelta) -> str:
     if hours > 0:
         return f"{hours}h {minutes}m"
     return f"{minutes}m"
+
+
+def format_feeding_countdown(
+    window_start: datetime,
+    window_end: datetime,
+    now: Optional[datetime] = None,
+) -> tuple[str, str]:
+    """Return display text and CSS class for the next-feed countdown.
+
+    Phases:
+      - before window starts: "in 42m", neutral
+      - during window:       "started 10m ago", green
+      - after window ends:   "overdue by 12m", red
+    """
+    if now is None:
+        now = datetime.now()
+    if now < window_start:
+        return f"in {format_duration(window_start - now)}", ""
+    if now <= window_end:
+        return f"started {format_duration(now - window_start)} ago", "feed-countdown-green"
+    return f"overdue by {format_duration(now - window_end)}", "feed-countdown-red"
