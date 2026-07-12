@@ -630,7 +630,7 @@ def test_start_feed_target_without_previous_feeding(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     r = client.get("/feedings/start-target?timestamp=2026-07-03T08:00")
     assert r.status_code == 200
-    assert "Expected: 65 ml" in r.text
+    assert "65 ml" in r.text
     assert "no previous feed" in r.text
 
 
@@ -647,7 +647,7 @@ def test_start_feed_target_with_previous_feeding(client, test_engine):
 
     r = client.get("/feedings/start-target?timestamp=2026-07-09T12:00")
     assert r.status_code == 200
-    assert "Expected: 70 ml" in r.text
+    assert "70 ml" in r.text
     assert "3h 0m after last feed" in r.text
 
 

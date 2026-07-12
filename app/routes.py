@@ -347,9 +347,9 @@ def start_feed_target(
 
     if previous_timestamp:
         interval_text = format_duration(timestamp - previous_timestamp)
-        note = f"Expected: {per_feed} ml ({interval_text} after last feed)"
+        note = f"{per_feed} ml ({interval_text} after last feed)"
     else:
-        note = f"Expected: {per_feed} ml (no previous feed)"
+        note = f"{per_feed} ml (no previous feed)"
 
     return templates.TemplateResponse(
         "partials/start_feed_target.html",
