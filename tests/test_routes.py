@@ -912,3 +912,39 @@ def test_complete_feeding_without_start_returns_404(client):
         },
     )
     assert r.status_code == 404
+
+
+def test_create_feeding_rejects_future_timestamp(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    future = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+    r = client.post(
+        "/feedings",
+        data={
+            "timestamp": future,
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+    assert r.status_code == 400
+
+
+def test_update_feeding_rejects_future_timestamp(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0), po_amount=30, ng_amount=10
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    future = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+    r = client.put(
+        f"/feedings/{feeding_id}",
+        data={
+            "timestamp": future,
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+    assert r.status_code == 400
