@@ -390,6 +390,7 @@ button.danger {
 
 .feeding-cards {
   display: none;
+  margin-top: 1rem;
 }
 
 .feeding-card {
