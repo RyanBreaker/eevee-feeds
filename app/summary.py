@@ -4,7 +4,11 @@ from sqlmodel import Session
 
 from app.models import TargetConfig
 from app.period import get_period_label, get_period_start, get_target_volume, linear_trend
-from app.repository import get_feedings_with_gaps, get_last_feeding
+from app.repository import (
+    attach_effective_targets,
+    get_feedings_with_gaps,
+    get_last_feeding,
+)
 
 
 def get_current_period_start() -> datetime:
@@ -12,7 +16,9 @@ def get_current_period_start() -> datetime:
 
 
 def get_period_summary(session: Session, config: TargetConfig, period_start: datetime) -> dict:
-    feedings_with_gaps = get_feedings_with_gaps(session, period_start)
+    feedings_with_gaps = attach_effective_targets(
+        session, config, get_feedings_with_gaps(session, period_start)
+    )
     feedings = [f for f, _ in feedings_with_gaps]
     po = sum(f.po_amount for f in feedings)
     ng = sum(f.ng_amount for f in feedings)
@@ -21,8 +27,8 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     po_pct = (po / total * 100) if total > 0 else 0
     remaining = target - total
 
-    target_total = sum(f.target_per_feed for f in feedings if f.target_per_feed is not None)
-    target_variance = total - target_total if target_total > 0 else None
+    target_total = sum(f.effective_target for f in feedings)
+    target_variance = total - target_total
 
     gaps = [gap for _, gap in feedings_with_gaps if gap]
     avg_gap = None

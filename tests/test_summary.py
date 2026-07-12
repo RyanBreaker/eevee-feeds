@@ -62,7 +62,7 @@ def test_get_period_summary_includes_target_variance(session):
     assert summary["target_variance"] == 20
 
 
-def test_get_period_summary_target_variance_none_without_targets(session):
+def test_get_period_summary_infers_target_for_legacy_feeding(session):
     config = get_or_create_config(session)
     feeding = Feeding(
         timestamp=datetime(2026, 7, 3, 8, 0), po_amount=30, ng_amount=10
@@ -73,8 +73,9 @@ def test_get_period_summary_target_variance_none_without_targets(session):
     period_start = datetime(2026, 7, 3, 6, 0)
     summary = get_period_summary(session, config, period_start)
 
-    assert summary["target_total"] == 0
-    assert summary["target_variance"] is None
+    # Inferred target for first feeding uses the static fallback: ceil(520/8) = 65.
+    assert summary["target_total"] == 65
+    assert summary["target_variance"] == 40 - 65
 
 
 def test_get_period_summary_for_past_period_has_no_next_window(session):

@@ -24,6 +24,7 @@ from app.period import (
 )
 from app.repository import (
     get_all_feedings,
+    get_effective_target_per_feed,
     get_feeding_by_id,
     get_feeding_gap,
     get_last_feeding,
@@ -232,10 +233,17 @@ def feeding_row(
     _: Optional[str] = Depends(require_auth),
 ):
     feeding = get_feeding_or_404(session, feeding_id)
+    config = get_or_create_config(session)
     gap = get_feeding_gap(session, feeding)
+    effective_target = get_effective_target_per_feed(session, config, feeding)
     return templates.TemplateResponse(
         "partials/feeding_row.html",
-        {"request": request, "feeding": feeding, "gap": gap},
+        {
+            "request": request,
+            "feeding": feeding,
+            "gap": gap,
+            "effective_target": effective_target,
+        },
     )
 
 
@@ -283,12 +291,14 @@ def update_feeding(
     session.commit()
 
     gap = get_feeding_gap(session, feeding)
+    effective_target = get_effective_target_per_feed(session, config, feeding)
     response = templates.TemplateResponse(
         "partials/feeding_row.html",
         {
             "request": request,
             "feeding": feeding,
             "gap": gap,
+            "effective_target": effective_target,
         },
     )
     response.headers["HX-Trigger"] = "feeding-updated"

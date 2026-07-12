@@ -7,7 +7,7 @@
     <div class="summary-label">Remaining</div>
     <div class="summary-value">{{ summary.remaining }} ml</div>
   </div>
-  {% if summary.target_variance is not none %}
+  {% if summary.target_total > 0 %}
   <div class="summary-card">
     <div class="summary-label">vs Target</div>
     <div class="summary-value">

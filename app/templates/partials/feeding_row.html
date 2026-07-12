@@ -1,13 +1,14 @@
 <tr id="feeding-{{ feeding.id }}">
   <td>{{ feeding.timestamp.strftime("%I:%M %p") }}</td>
   {% set total = feeding.po_amount + feeding.ng_amount %}
+  {% set target = effective_target if effective_target is defined else (feeding.effective_target if feeding.effective_target is defined else feeding.target_per_feed) %}
   <td>{{ feeding.po_amount }} ml</td>
   <td>{{ feeding.ng_amount }} ml</td>
   <td>{{ total }} ml</td>
   <td>
-    {% if feeding.target_per_feed is not none %}
-      {{ feeding.target_per_feed }} ml
-      {% set variance = total - feeding.target_per_feed %}
+    {% if target is not none %}
+      {{ target }} ml
+      {% set variance = total - target %}
       <span class="feed-variance {% if variance > 0 %}over{% elif variance < 0 %}under{% endif %}">{{ "%+d" | format(variance) }} ml</span>
     {% else %}—{% endif %}
   </td>

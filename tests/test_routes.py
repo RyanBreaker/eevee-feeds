@@ -192,7 +192,7 @@ def test_feeding_row_shows_variance_when_over_target(client, test_engine):
     assert "feed-variance over" in r.text
 
 
-def test_feeding_row_shows_dash_when_target_missing(client, test_engine):
+def test_feeding_row_infers_target_when_not_stored(client, test_engine):
     client.post("/login", data={"username": "admin", "password": "secret"})
 
     with Session(test_engine) as session:
@@ -209,7 +209,9 @@ def test_feeding_row_shows_dash_when_target_missing(client, test_engine):
     r = client.get(f"/feedings/{feeding_id}")
     assert r.status_code == 200
     assert "40 ml" in r.text
-    assert "feed-variance" not in r.text
+    assert "70 ml" in r.text
+    assert "-30 ml" in r.text
+    assert "feed-variance under" in r.text
 
 
 def test_summary_cards_route(client, test_engine):
