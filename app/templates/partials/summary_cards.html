@@ -1,17 +1,13 @@
 <div id="summary-cards" hx-get="/summary-cards" hx-trigger="feeding-updated from:body" hx-swap="outerHTML" hx-swap-oob="true" class="summary-grid">
   <div class="summary-card">
     <div class="summary-label">Total / Target</div>
-    <div class="summary-value">{{ summary.total }} / {{ summary.target }} ml</div>
-  </div>
-  {% if summary.target_total > 0 %}
-  <div class="summary-card">
-    <div class="summary-label">vs Target</div>
     <div class="summary-value">
-      {{ "%+d" | format(summary.target_variance) }} ml
-      <div class="summary-sub">{{ summary.total }} / {{ summary.target_total }} ml</div>
+      {{ summary.total }} / {{ summary.target }} ml
+      {% if summary.total > 0 %}
+      <div class="summary-sub">{{ "%+d" | format(summary.target_variance) }} ml</div>
+      {% endif %}
     </div>
   </div>
-  {% endif %}
   <div class="summary-card">
     <div class="summary-label">PO / NG</div>
     <div class="summary-value">{{ summary.po }} / {{ summary.ng }} ml</div>

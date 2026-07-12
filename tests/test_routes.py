@@ -253,9 +253,9 @@ def test_summary_cards_show_vs_target_when_targets_present(client, test_engine):
 
     r = client.get("/summary-cards")
     assert r.status_code == 200
-    assert "vs Target" in r.text
-    assert "-10 ml" in r.text
+    assert "Total / Target" in r.text
     assert "90 / 100 ml" in r.text
+    assert "-10 ml" in r.text
 
 
 def test_next_feeding_window_on_today_page(client):

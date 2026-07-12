@@ -27,7 +27,6 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     po_pct = (po / total * 100) if total > 0 else 0
     remaining = target - total
 
-    target_total = target
     target_variance = total - target
 
     gaps = [gap for _, gap in feedings_with_gaps if gap]
@@ -54,7 +53,6 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "target": target,
         "po_pct": round(po_pct, 1),
         "remaining": remaining,
-        "target_total": target_total,
         "target_variance": target_variance,
         "feedings": feedings_with_gaps,
         "avg_gap": avg_gap,

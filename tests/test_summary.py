@@ -61,7 +61,6 @@ def test_get_period_summary_includes_target_variance(session):
     summary = get_period_summary(session, config, period_start)
 
     assert summary["total"] == 90
-    assert summary["target_total"] == 100
     assert summary["target_variance"] == -10
 
 
@@ -79,7 +78,6 @@ def test_get_period_summary_infers_target_for_legacy_feeding(session):
     period_start = datetime(2026, 7, 3, 6, 0)
     summary = get_period_summary(session, config, period_start)
 
-    assert summary["target_total"] == 100
     assert summary["target_variance"] == 40 - 100
 
 
