@@ -1,7 +1,7 @@
 <section class="section" id="feeding-start-section" hx-get="/feedings/start-section" hx-trigger="feeding-completed from:body" hx-swap="outerHTML">
   {% if feeding_start %}
   <h2>Complete Feeding</h2>
-  <form class="feeding-form" id="complete-feeding-form" hx-post="/feedings/complete" hx-target="#feeding-list" hx-swap="outerHTML" hx-on::after-request="htmx.trigger('#feeding-start-section', 'feeding-completed')">
+  <form class="feeding-form" id="complete-feeding-form" hx-post="/feedings/complete" hx-target="#feeding-list-container" hx-swap="outerHTML">
     <div class="form-row">
       <label>
         Time

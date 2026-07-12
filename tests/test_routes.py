@@ -718,6 +718,7 @@ def test_complete_feeding_creates_feeding_and_deletes_start(client, test_engine)
         },
     )
     assert r.status_code == 200
+    assert 'id="feeding-list-container"' in r.text
     assert 'id="feeding-list"' in r.text
     assert r.headers.get("HX-Trigger") == "feeding-completed"
 
@@ -743,6 +744,35 @@ def test_cancel_feeding_start_deletes_it(client, test_engine):
     with Session(test_engine) as session:
         feeding_start = session.exec(select(FeedingStart)).first()
     assert feeding_start is None
+
+
+def test_delete_feeding_returns_list_container_without_deleted_row(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    # Create two feedings for the same period
+    client.post(
+        "/feedings",
+        data={"timestamp": "2026-07-09T10:00", "po_amount": "20", "ng_amount": "10"},
+    )
+    r = client.post(
+        "/feedings",
+        data={"timestamp": "2026-07-09T14:00", "po_amount": "30", "ng_amount": "10"},
+    )
+    feeding_id_to_delete = None
+    with Session(test_engine) as session:
+        feedings = list(session.exec(select(Feeding).order_by(Feeding.timestamp)))
+        assert len(feedings) == 2
+        feeding_id_to_delete = feedings[0].id
+
+    r = client.delete(f"/feedings/{feeding_id_to_delete}")
+    assert r.status_code == 200
+    assert 'id="feeding-list-container"' in r.text
+    assert f'id="feeding-{feeding_id_to_delete}"' not in r.text
+    assert "2:00 PM" in r.text
+
+    with Session(test_engine) as session:
+        remaining = list(session.exec(select(Feeding)))
+    assert len(remaining) == 1
+    assert remaining[0].id != feeding_id_to_delete
 
 
 def test_cannot_start_feeding_when_one_in_progress(client):

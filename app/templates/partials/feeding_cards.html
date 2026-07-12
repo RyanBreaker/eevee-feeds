@@ -45,7 +45,7 @@
       </div>
       <div class="feeding-card-actions">
         <button hx-get="/feedings/{{ feeding.id }}/edit" hx-target="#feeding-{{ feeding.id }}" hx-swap="outerHTML">Edit</button>
-        <button hx-delete="/feedings/{{ feeding.id }}" hx-target="#feeding-list" hx-swap="outerHTML" hx-confirm="Delete this feeding?">Delete</button>
+        <button hx-delete="/feedings/{{ feeding.id }}" hx-target="#feeding-list-container" hx-swap="outerHTML" hx-confirm="Delete this feeding?">Delete</button>
       </div>
     </div>
   </div>
