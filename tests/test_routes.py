@@ -257,7 +257,7 @@ def test_summary_cards_show_vs_target_when_targets_present(client, test_engine):
     assert "90 / 100 ml" in r.text
     assert "-10 ml" in r.text
     assert 'class="progress-bar"' in r.text
-    assert 'target-status-green' in r.text
+    assert "target-status-green" in r.text
     assert 'style="width: 90%"' in r.text
 
 
@@ -280,7 +280,9 @@ def test_summary_cards_show_trend_when_history_present(client, test_engine):
         )
         # Three past days with 50 ml at same time of day
         for day_offset in range(1, 4):
-            past_time = current_period_start - timedelta(days=day_offset) + timedelta(hours=1)
+            past_time = (
+                current_period_start - timedelta(days=day_offset) + timedelta(hours=1)
+            )
             session.add(
                 Feeding(
                     timestamp=past_time,
@@ -315,7 +317,7 @@ def test_next_feeding_window_on_today_page(client):
 
     response = client.get("/")
     assert response.status_code == 200
-    assert "Next feed" in response.text
+    assert "Next feed window" in response.text
     assert "started " in response.text
     assert " ago" in response.text
     assert "feed-countdown-green" in response.text
@@ -359,9 +361,9 @@ def test_mobile_feeding_cards_render_feeding_data(client):
     response = client.get("/")
     assert response.status_code == 200
     assert 'class="badge badge-po"' in response.text
-    assert 'PO 30ml' in response.text
-    assert 'NG 10ml' in response.text
-    assert 'Total 40ml' in response.text
+    assert "PO 30ml" in response.text
+    assert "NG 10ml" in response.text
+    assert "Total 40ml" in response.text
     assert "via tube" in response.text
     assert 'class="feeding-card-actions"' in response.text
 
