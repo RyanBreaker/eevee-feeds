@@ -15,6 +15,7 @@
     </tr>
   </thead>
   <tbody>
+    {% include "partials/feeding_inline_add.html" %}
     {% for feeding, gap in feedings %}
     {% include "partials/feeding_row.html" %}
     {% else %}

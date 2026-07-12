@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from urllib.parse import unquote
 
 import httpx
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.backup_service import backup_service
 from app.models import Feeding, NotificationLog
@@ -284,6 +284,63 @@ def test_next_feeding_window_on_today_page(client):
     assert " ago" in response.text
     assert "feed-countdown-green" in response.text
     assert f"{format_time(window_start)}-{format_time(window_end)}" in response.text
+
+
+def test_index_includes_inline_add_row_when_current(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    response = client.get("/")
+    assert response.status_code == 200
+    assert 'id="feeding-inline-add"' in response.text
+    assert 'id="inline-po-amount"' in response.text
+    assert 'id="inline-ng-amount"' in response.text
+    assert 'id="inline-total"' in response.text
+    assert 'id="inline-add-form"' in response.text
+
+
+def test_index_excludes_inline_add_row_for_past_period(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    yesterday = (datetime.now() - timedelta(days=1)).date().isoformat()
+    response = client.get(f"/?period={yesterday}")
+    assert response.status_code == 200
+    assert 'id="feeding-inline-add"' not in response.text
+
+
+def test_inline_add_row_creates_feeding(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    feeding_time = datetime.now().replace(second=0, microsecond=0)
+    response = client.post(
+        "/feedings",
+        data={
+            "timestamp": feeding_time.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "35",
+            "ng_amount": "5",
+            "notes": "quick",
+        },
+    )
+    assert response.status_code == 200
+    assert 'id="feeding-inline-add"' in response.text
+
+    with Session(test_engine) as session:
+        feeding = session.exec(select(Feeding).order_by(Feeding.id.desc())).first()
+    assert feeding.po_amount == 35
+    assert feeding.ng_amount == 5
+    assert feeding.notes == "quick"
+
+
+def test_inline_add_row_shows_error_for_future_timestamp(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    future = datetime.now() + timedelta(hours=1)
+    response = client.post(
+        "/feedings",
+        data={
+            "timestamp": future.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "35",
+            "ng_amount": "5",
+        },
+    )
+    assert response.status_code == 200
+    assert "Timestamp cannot be in the future" in response.text
+    assert 'id="feeding-inline-add"' in response.text
 
 
 def test_index_shows_po_percentage_per_feeding(client):
