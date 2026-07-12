@@ -56,17 +56,6 @@
       });
     }
 
-    document.body.addEventListener('input', function(e) {
-      if (e.target.id === 'inline-po-amount' || e.target.id === 'inline-ng-amount') {
-        const po = parseInt(document.getElementById('inline-po-amount').value, 10) || 0;
-        const ng = parseInt(document.getElementById('inline-ng-amount').value, 10) || 0;
-        const totalInput = document.getElementById('inline-total');
-        if (totalInput) {
-          totalInput.value = po + ng;
-        }
-      }
-    });
-
     document.addEventListener('DOMContentLoaded', function() {
       updateAutoDurations();
       updateFeedCountdowns();

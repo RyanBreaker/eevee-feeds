@@ -335,24 +335,6 @@ button.danger {
   margin-left: 0.25rem;
 }
 
-.feeding-inline-add input {
-  width: 100%;
-  min-width: 60px;
-  padding: 0.35rem 0.4rem;
-  font-size: 0.85rem;
-}
-
-.feeding-inline-add input[readonly] {
-  background: var(--bg);
-  color: var(--muted);
-}
-
-.inline-error {
-  color: var(--danger);
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
-}
-
 .inline-form {
   display: flex;
   flex-wrap: wrap;

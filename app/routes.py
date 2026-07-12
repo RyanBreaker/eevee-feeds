@@ -128,8 +128,6 @@ def index(
             "previous_period": (selected_period - timedelta(days=1)).date().isoformat(),
             "next_period": (selected_period + timedelta(days=1)).date().isoformat(),
             "is_current": is_current,
-            "now": datetime.now(),
-            "inline_error": None,
         },
     )
 
@@ -200,25 +198,22 @@ def create_feeding(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    config = get_or_create_config(session)
-    current_period = get_current_period_start()
-    inline_error = None
-
     if timestamp > datetime.now():
-        inline_error = "Timestamp cannot be in the future"
-    else:
-        target_per_feed = _compute_target_per_feed(session, config, timestamp)
-        feeding = Feeding(
-            timestamp=timestamp,
-            po_amount=po_amount,
-            ng_amount=ng_amount,
-            target_per_feed=target_per_feed,
-            notes=notes,
-        )
-        session.add(feeding)
-        session.commit()
+        raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
 
-    feeding_period = get_period_start(timestamp)
+    config = get_or_create_config(session)
+    target_per_feed = _compute_target_per_feed(session, config, timestamp)
+    feeding = Feeding(
+        timestamp=timestamp,
+        po_amount=po_amount,
+        ng_amount=ng_amount,
+        target_per_feed=target_per_feed,
+        notes=notes,
+    )
+    session.add(feeding)
+    session.commit()
+
+    feeding_period = get_period_start(feeding.timestamp)
     summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
         "partials/feeding_list.html",
@@ -226,9 +221,6 @@ def create_feeding(
             "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
-            "is_current": feeding_period.date() == current_period.date(),
-            "now": datetime.now(),
-            "inline_error": inline_error,
         },
     )
 
@@ -326,7 +318,6 @@ def delete_feeding(
     session.commit()
 
     config = get_or_create_config(session)
-    current_period = get_current_period_start()
     summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
         "partials/feeding_list.html",
@@ -334,9 +325,6 @@ def delete_feeding(
             "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
-            "is_current": feeding_period.date() == current_period.date(),
-            "now": datetime.now(),
-            "inline_error": None,
         },
     )
 
