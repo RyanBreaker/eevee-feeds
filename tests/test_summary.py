@@ -81,6 +81,51 @@ def test_get_period_summary_infers_target_for_legacy_feeding(session):
     assert summary["target_variance"] == 40 - 100
 
 
+def test_get_period_summary_target_progress_and_status(session):
+    config = get_or_create_config(session)
+    config.start_volume = 100
+    config.increment = 0
+    session.add(config)
+
+    cases = [
+        # (po, ng, expected_pct, expected_class)
+        (95, 0, 95, "target-status-green"),
+        (80, 0, 80, "target-status-yellow"),
+        (70, 0, 70, "target-status-red"),
+        (150, 0, 100, "target-status-green"),
+    ]
+
+    for po, ng, expected_pct, expected_class in cases:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 3, 8, 0), po_amount=po, ng_amount=ng
+        )
+        session.add(feeding)
+        session.commit()
+
+        period_start = datetime(2026, 7, 3, 6, 0)
+        summary = get_period_summary(session, config, period_start)
+
+        assert summary["target_progress_pct"] == expected_pct, (po, ng)
+        assert summary["target_status_class"] == expected_class, (po, ng)
+
+        session.delete(feeding)
+        session.commit()
+
+
+def test_get_period_summary_target_progress_zero_when_empty(session):
+    config = get_or_create_config(session)
+    config.start_volume = 100
+    config.increment = 0
+    session.add(config)
+    session.commit()
+
+    period_start = datetime(2026, 7, 3, 6, 0)
+    summary = get_period_summary(session, config, period_start)
+
+    assert summary["target_progress_pct"] == 0
+    assert summary["target_status_class"] == "target-status-red"
+
+
 def test_get_period_summary_for_past_period_has_no_next_window(session):
     config = get_or_create_config(session)
     feeding = Feeding(

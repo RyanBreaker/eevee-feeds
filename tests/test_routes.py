@@ -256,6 +256,9 @@ def test_summary_cards_show_vs_target_when_targets_present(client, test_engine):
     assert "Total / Target" in r.text
     assert "90 / 100 ml" in r.text
     assert "-10 ml" in r.text
+    assert 'class="progress-bar"' in r.text
+    assert 'target-status-green' in r.text
+    assert 'style="width: 90%"' in r.text
 
 
 def test_next_feeding_window_on_today_page(client):

@@ -29,6 +29,18 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
 
     target_variance = total - target
 
+    if target > 0:
+        target_ratio = total / target
+    else:
+        target_ratio = 0
+    target_progress_pct = int(min(target_ratio * 100, 100))
+    if target_ratio >= 0.9:
+        target_status_class = "target-status-green"
+    elif target_ratio >= 0.75:
+        target_status_class = "target-status-yellow"
+    else:
+        target_status_class = "target-status-red"
+
     gaps = [gap for _, gap in feedings_with_gaps if gap]
     avg_gap = None
     if gaps:
@@ -54,6 +66,8 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "po_pct": round(po_pct, 1),
         "remaining": remaining,
         "target_variance": target_variance,
+        "target_progress_pct": target_progress_pct,
+        "target_status_class": target_status_class,
         "feedings": feedings_with_gaps,
         "avg_gap": avg_gap,
         "time_since_last": time_since_last,

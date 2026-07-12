@@ -3,11 +3,15 @@
     <div class="summary-label">Total / Target</div>
     <div class="summary-value">
       {{ summary.total }} / {{ summary.target }} ml
-      {% if summary.total > 0 %}
-      <div class="summary-sub">{{ "%+d" | format(summary.target_variance) }} ml</div>
+      <div class="progress-bar" aria-label="Progress toward daily target: {{ summary.target_progress_pct }}%">
+        <div class="progress-fill {{ summary.target_status_class }}" style="width: {{ summary.target_progress_pct }}%"></div>
+      </div>
+      {% if summary.target > 0 %}
+      <div class="summary-sub {{ summary.target_status_class }}">{{ "%+d" | format(summary.target_variance) }} ml</div>
       {% endif %}
     </div>
   </div>
+
   <div class="summary-card">
     <div class="summary-label">PO / NG</div>
     <div class="summary-value">{{ summary.po }} / {{ summary.ng }} ml</div>
@@ -27,14 +31,14 @@
     </div>
   </div>
   {% endif %}
+  <div class="summary-card">
+    <div class="summary-label">Avg gap</div>
+    <div class="summary-value">{% if summary.avg_gap %}{{ summary.avg_gap | format_duration }}{% else %}—{% endif %}</div>
+  </div>
   {% if summary.next_feeding_window %}
   <div class="summary-card">
     <div class="summary-label">Next feeding window</div>
     <div class="summary-value">{{ summary.next_feeding_window[0] | format_time }}-{{ summary.next_feeding_window[1] | format_time }}</div>
   </div>
   {% endif %}
-  <div class="summary-card">
-    <div class="summary-label">Avg gap</div>
-    <div class="summary-value">{% if summary.avg_gap %}{{ summary.avg_gap | format_duration }}{% else %}—{% endif %}</div>
-  </div>
 </div>

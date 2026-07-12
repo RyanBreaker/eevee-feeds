@@ -163,6 +163,36 @@ h2 {
   margin-top: 0.15rem;
 }
 
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: var(--radius);
+  margin-top: 0.4rem;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: var(--radius);
+  transition: width 0.2s ease;
+  min-width: 2px;
+}
+
+.target-status-green {
+  color: #16a34a;
+  background-color: #16a34a;
+}
+
+.target-status-yellow {
+  color: #ca8a04;
+  background-color: #ca8a04;
+}
+
+.target-status-red {
+  color: var(--danger);
+  background-color: var(--danger);
+}
+
 .form-row {
   display: flex;
   flex-wrap: wrap;
