@@ -45,6 +45,9 @@ def test_get_period_summary(session):
 
 def test_get_period_summary_includes_target_variance(session):
     config = get_or_create_config(session)
+    config.start_volume = 100
+    config.increment = 0
+    session.add(config)
     feeding = Feeding(
         timestamp=datetime(2026, 7, 3, 8, 0),
         po_amount=80,
@@ -58,12 +61,15 @@ def test_get_period_summary_includes_target_variance(session):
     summary = get_period_summary(session, config, period_start)
 
     assert summary["total"] == 90
-    assert summary["target_total"] == 70
-    assert summary["target_variance"] == 20
+    assert summary["target_total"] == 100
+    assert summary["target_variance"] == -10
 
 
 def test_get_period_summary_infers_target_for_legacy_feeding(session):
     config = get_or_create_config(session)
+    config.start_volume = 100
+    config.increment = 0
+    session.add(config)
     feeding = Feeding(
         timestamp=datetime(2026, 7, 3, 8, 0), po_amount=30, ng_amount=10
     )
@@ -73,9 +79,8 @@ def test_get_period_summary_infers_target_for_legacy_feeding(session):
     period_start = datetime(2026, 7, 3, 6, 0)
     summary = get_period_summary(session, config, period_start)
 
-    # Inferred target for first feeding uses the static fallback: ceil(520/8) = 65.
-    assert summary["target_total"] == 65
-    assert summary["target_variance"] == 40 - 65
+    assert summary["target_total"] == 100
+    assert summary["target_variance"] == 40 - 100
 
 
 def test_get_period_summary_for_past_period_has_no_next_window(session):
