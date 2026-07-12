@@ -7,6 +7,12 @@
 </section>
 {% endif %}
 
+{% if feeding_start %}
+<section class="section feeding-start-notice">
+  <p>A feed is in progress — <a href="/" class="today-link">go to Today</a> to complete it.</p>
+</section>
+{% endif %}
+
 <section class="section">
   <h2>Notifications</h2>
   {% if notification.enabled %}

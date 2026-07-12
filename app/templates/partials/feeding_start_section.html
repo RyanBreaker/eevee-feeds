@@ -1,0 +1,45 @@
+<section class="section" id="feeding-start-section" hx-get="/feedings/start-section" hx-trigger="feeding-completed from:body" hx-swap="outerHTML">
+  {% if feeding_start %}
+  <h2>Complete Feeding</h2>
+  <form class="feeding-form" id="complete-feeding-form" hx-post="/feedings/complete" hx-target="#feeding-list" hx-swap="outerHTML" hx-on::after-request="htmx.trigger('#feeding-start-section', 'feeding-completed')">
+    <div class="form-row">
+      <label>
+        Time
+        <input type="datetime-local" name="timestamp" value="{{ feeding_start.timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
+      </label>
+      <label>
+        Total per feed (ml)
+        <input type="number" name="per_feed_total" min="0" step="1">
+        <span class="feed-interval-note"></span>
+      </label>
+      <label>
+        NG / by tube (ml)
+        <input type="number" name="ng_amount" min="0" step="1" required>
+      </label>
+      <label>
+        PO / by mouth (ml)
+        <input type="number" name="po_amount" min="0" step="1" required>
+      </label>
+      <label>
+        Notes
+        <input type="text" name="notes" placeholder="Optional">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit">Save Feeding</button>
+      <button type="button" class="button-secondary" hx-delete="/feedings/start" hx-target="#feeding-start-section" hx-swap="outerHTML">Cancel</button>
+    </div>
+  </form>
+  {% else %}
+  <h2>Start Feed</h2>
+  <form class="feeding-start-form" id="start-feed-form" hx-post="/feedings/start" hx-target="#feeding-start-section" hx-swap="outerHTML">
+    <div class="form-row">
+      <label>
+        Time
+        <input type="datetime-local" name="timestamp" value="{{ default_timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
+      </label>
+      <button type="submit">Start feed</button>
+    </div>
+  </form>
+  {% endif %}
+</section>

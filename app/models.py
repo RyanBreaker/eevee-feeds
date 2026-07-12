@@ -16,6 +16,13 @@ class Feeding(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class FeedingStart(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class TargetConfig(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     start_date: date

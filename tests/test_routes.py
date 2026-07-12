@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 from urllib.parse import unquote
 
 import httpx
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.backup_service import backup_service
-from app.models import Feeding, NotificationLog
+from app.models import Feeding, FeedingStart, NotificationLog
 from app.notification_service import notification_service
 from app.period import format_time
 from app.repository import get_or_create_config
@@ -610,8 +610,9 @@ def test_feed_target_period_boundary(client, test_engine):
     assert data["interval_minutes"] == 120
 
 
-def test_add_feeding_form_includes_interval_note_placeholder(client):
+def test_complete_feeding_form_includes_interval_note_placeholder(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
     r = client.get("/")
     assert r.status_code == 200
     assert '<span class="feed-interval-note"></span>' in r.text
@@ -688,3 +689,153 @@ def test_manual_backup_disabled(client, monkeypatch):
     r = client.post("/settings/backup", follow_redirects=False)
     assert r.status_code == 303
     assert "Backup is not configured" in unquote(r.headers["location"])
+
+
+def test_start_feeding_creates_feeding_start(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    timestamp = "2026-07-09T12:00"
+    r = client.post("/feedings/start", data={"timestamp": timestamp})
+    assert r.status_code == 200
+    assert 'id="complete-feeding-form"' in r.text
+
+    with Session(test_engine) as session:
+        feeding_start = session.exec(select(FeedingStart)).first()
+    assert feeding_start is not None
+    assert feeding_start.timestamp.strftime("%Y-%m-%dT%H:%M") == timestamp
+
+
+def test_complete_feeding_creates_feeding_and_deletes_start(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.post(
+        "/feedings/complete",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "30",
+            "ng_amount": "10",
+            "notes": "done",
+        },
+    )
+    assert r.status_code == 200
+    assert 'id="feeding-list"' in r.text
+    assert r.headers.get("HX-Trigger") == "feeding-completed"
+
+    with Session(test_engine) as session:
+        feeding = session.exec(select(Feeding)).first()
+        feeding_start = session.exec(select(FeedingStart)).first()
+    assert feeding is not None
+    assert feeding.po_amount == 30
+    assert feeding.ng_amount == 10
+    assert feeding.notes == "done"
+    assert feeding.target_per_feed == 70
+    assert feeding_start is None
+
+
+def test_cancel_feeding_start_deletes_it(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.delete("/feedings/start")
+    assert r.status_code == 200
+    assert 'id="start-feed-form"' in r.text
+
+    with Session(test_engine) as session:
+        feeding_start = session.exec(select(FeedingStart)).first()
+    assert feeding_start is None
+
+
+def test_cannot_start_feeding_when_one_in_progress(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.post("/feedings/start", data={"timestamp": "2026-07-09T13:00"})
+    assert r.status_code == 409
+
+
+def test_update_feeding_start_timestamp(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.put("/feedings/start", data={"timestamp": "2026-07-09T11:30"})
+    assert r.status_code == 200
+    assert 'id="complete-feeding-form"' in r.text
+    assert "2026-07-09T11:30" in r.text
+
+    with Session(test_engine) as session:
+        feeding_start = session.exec(select(FeedingStart)).first()
+    assert feeding_start.timestamp.strftime("%Y-%m-%dT%H:%M") == "2026-07-09T11:30"
+
+
+def test_index_shows_start_control_when_no_feeding_start(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'id="start-feed-form"' in r.text
+    assert 'id="complete-feeding-form"' not in r.text
+
+
+def test_index_shows_complete_form_when_feeding_start_exists(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'id="complete-feeding-form"' in r.text
+    assert 'id="start-feed-form"' not in r.text
+
+
+def test_non_today_page_shows_in_progress_notice(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.get("/?period=2026-07-08")
+    assert r.status_code == 200
+    assert "A feed is in progress" in r.text
+    assert 'id="complete-feeding-form"' not in r.text
+    assert 'id="start-feed-form"' not in r.text
+
+
+def test_settings_page_shows_in_progress_notice(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert "A feed is in progress" in r.text
+
+
+def test_start_feeding_rejects_future_timestamp(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    future = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+    r = client.post("/feedings/start", data={"timestamp": future})
+    assert r.status_code == 400
+
+
+def test_complete_feeding_rejects_future_timestamp(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    future = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+    r = client.post(
+        "/feedings/complete",
+        data={
+            "timestamp": future,
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+    assert r.status_code == 400
+
+
+def test_complete_feeding_without_start_returns_404(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post(
+        "/feedings/complete",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+    assert r.status_code == 404

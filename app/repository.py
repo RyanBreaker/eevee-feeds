@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
-from app.models import Feeding, TargetConfig
+from app.models import Feeding, FeedingStart, TargetConfig
 from app.period import get_period_start, get_target_feed_amount, get_target_volume
 
 
@@ -147,3 +147,31 @@ def get_feeding_gap(session: Session, feeding: Feeding) -> Optional[timedelta]:
     if previous_feeding:
         return feeding.timestamp - previous_feeding.timestamp
     return None
+
+
+def get_feeding_start(session: Session) -> Optional[FeedingStart]:
+    return session.exec(select(FeedingStart)).first()
+
+
+def create_feeding_start(session: Session, timestamp: datetime) -> FeedingStart:
+    feeding_start = FeedingStart(timestamp=timestamp)
+    session.add(feeding_start)
+    session.commit()
+    session.refresh(feeding_start)
+    return feeding_start
+
+
+def delete_feeding_start(session: Session, feeding_start: FeedingStart) -> None:
+    session.delete(feeding_start)
+    session.commit()
+
+
+def update_feeding_start_timestamp(
+    session: Session, feeding_start: FeedingStart, timestamp: datetime
+) -> FeedingStart:
+    feeding_start.timestamp = timestamp
+    feeding_start.updated_at = datetime.utcnow()
+    session.add(feeding_start)
+    session.commit()
+    session.refresh(feeding_start)
+    return feeding_start
