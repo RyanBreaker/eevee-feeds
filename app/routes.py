@@ -19,6 +19,7 @@ from app.period import (
     format_time,
     get_period_start,
 )
+import app.feeding_service as feeding_service
 from app.repository import (
     create_feeding_start,
     delete_feeding_start,
@@ -26,7 +27,6 @@ from app.repository import (
     get_feeding_by_id,
     get_feeding_gap,
     get_feeding_start,
-    get_last_feeding,
     get_or_create_config,
     update_feeding_start_timestamp,
 )
@@ -53,24 +53,6 @@ def _now_truncated() -> datetime:
 def _require_timestamp_not_future(timestamp: datetime) -> None:
     if timestamp > datetime.now():
         raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
-
-
-def _build_feeding(
-    session: Session,
-    config: TargetConfig,
-    timestamp: datetime,
-    po_amount: int,
-    ng_amount: int,
-    notes: Optional[str],
-) -> Feeding:
-    target_per_feed = compute_feed_target(session, config, timestamp).per_feed
-    return Feeding(
-        timestamp=timestamp,
-        po_amount=po_amount,
-        ng_amount=ng_amount,
-        target_per_feed=target_per_feed,
-        notes=notes,
-    )
 
 
 def _render_feeding_list(
@@ -219,12 +201,13 @@ def create_feeding(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    _require_timestamp_not_future(timestamp)
-
     config = get_or_create_config(session)
-    feeding = _build_feeding(session, config, timestamp, po_amount, ng_amount, notes)
-    session.add(feeding)
-    session.commit()
+    try:
+        feeding = feeding_service.create_feeding(
+            session, config, timestamp, po_amount, ng_amount, notes
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     feeding_period = get_period_start(feeding.timestamp)
     return _render_feeding_list(request, session, config, feeding_period)
@@ -332,17 +315,17 @@ def complete_feeding(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    _require_timestamp_not_future(timestamp)
-
     feeding_start = get_feeding_start(session)
     if not feeding_start:
         raise HTTPException(status_code=404, detail="No feed in progress")
 
     config = get_or_create_config(session)
-    feeding = _build_feeding(session, config, timestamp, po_amount, ng_amount, notes)
-    session.add(feeding)
-    session.delete(feeding_start)
-    session.commit()
+    try:
+        feeding = feeding_service.complete_feeding(
+            session, config, feeding_start, timestamp, po_amount, ng_amount, notes
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     feeding_period = get_period_start(feeding.timestamp)
     response = _render_feeding_list(request, session, config, feeding_period)
@@ -397,22 +380,14 @@ def update_feeding(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    _require_timestamp_not_future(timestamp)
-
     feeding = get_feeding_or_404(session, feeding_id)
     config = get_or_create_config(session)
-    target_per_feed = compute_feed_target(
-        session, config, timestamp, exclude_feeding_id=feeding_id
-    ).per_feed
-
-    feeding.timestamp = timestamp
-    feeding.po_amount = po_amount
-    feeding.ng_amount = ng_amount
-    feeding.target_per_feed = target_per_feed
-    feeding.notes = notes
-    feeding.updated_at = datetime.utcnow()
-    session.add(feeding)
-    session.commit()
+    try:
+        feeding = feeding_service.update_feeding(
+            session, config, feeding, timestamp, po_amount, ng_amount, notes
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     gap = get_feeding_gap(session, feeding)
     effective_target = effective_target_for_feeding(session, config, feeding)
@@ -438,8 +413,7 @@ def delete_feeding(
 ):
     feeding = get_feeding_or_404(session, feeding_id)
     feeding_period = get_period_start(feeding.timestamp)
-    session.delete(feeding)
-    session.commit()
+    feeding_service.delete_feeding(session, feeding)
 
     config = get_or_create_config(session)
     summary = get_period_summary(session, config, feeding_period)
