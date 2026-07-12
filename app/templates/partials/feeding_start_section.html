@@ -36,8 +36,19 @@
     <div class="form-row">
       <label>
         Time
-        <input type="datetime-local" name="timestamp" value="{{ default_timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
+        <input
+          type="datetime-local"
+          name="timestamp"
+          value="{{ default_timestamp.strftime('%Y-%m-%dT%H:%M') }}"
+          required
+          hx-get="/feedings/start-target"
+          hx-trigger="load, change"
+          hx-target="#start-feed-target-preview"
+          hx-swap="innerHTML"
+          hx-include="this"
+        >
       </label>
+      <span id="start-feed-target-preview" class="feed-interval-note"></span>
       <button type="submit">Start feed</button>
     </div>
   </form>
