@@ -305,14 +305,13 @@ def start_feed_target(
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
-    period_start = get_period_start(timestamp)
-    target = get_target_volume(config, period_start.date())
-    previous_feeding = get_previous_feeding(session, timestamp)
-    previous_timestamp = previous_feeding.timestamp if previous_feeding else None
-    per_feed = get_target_feed_amount(target, timestamp, previous_timestamp)
+    feed_target_result = compute_feed_target(session, config, timestamp)
+    per_feed = feed_target_result.per_feed
 
-    if previous_timestamp:
-        interval_text = format_duration(timestamp - previous_timestamp)
+    if feed_target_result.actual_interval_minutes is not None:
+        interval_text = format_duration(
+            timedelta(minutes=feed_target_result.actual_interval_minutes)
+        )
         note = f"{per_feed} ml ({interval_text} after last feed)"
     else:
         note = f"{per_feed} ml (no previous feed)"
