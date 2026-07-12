@@ -260,8 +260,6 @@ def start_feeding(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    _require_timestamp_not_future(timestamp)
-
     existing = get_feeding_start(session)
     if existing:
         raise HTTPException(status_code=409, detail="A feed is already in progress")
@@ -297,6 +295,32 @@ def cancel_feeding_start(
     if feeding_start:
         delete_feeding_start(session, feeding_start)
     return _render_feeding_start_section(request, None)
+
+
+@router.get("/feedings/start-target", response_class=HTMLResponse)
+def start_feed_target(
+    request: Request,
+    timestamp: datetime = Query(...),
+    session: Session = Depends(get_session),
+    _: Optional[str] = Depends(require_auth),
+):
+    config = get_or_create_config(session)
+    period_start = get_period_start(timestamp)
+    target = get_target_volume(config, period_start.date())
+    previous_feeding = get_previous_feeding(session, timestamp)
+    previous_timestamp = previous_feeding.timestamp if previous_feeding else None
+    per_feed = get_target_feed_amount(target, timestamp, previous_timestamp)
+
+    if previous_timestamp:
+        interval_text = format_duration(timestamp - previous_timestamp)
+        note = f"{per_feed} ml ({interval_text} after last feed)"
+    else:
+        note = f"{per_feed} ml (no previous feed)"
+
+    return templates.TemplateResponse(
+        "partials/start_feed_target.html",
+        {"request": request, "note": note},
+    )
 
 
 @router.post("/feedings/complete", response_class=HTMLResponse)

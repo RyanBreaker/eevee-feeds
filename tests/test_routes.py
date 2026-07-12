@@ -618,6 +618,39 @@ def test_complete_feeding_form_includes_interval_note_placeholder(client):
     assert '<span class="feed-interval-note"></span>' in r.text
 
 
+def test_start_feed_target_requires_auth(client):
+    r = client.get(
+        "/feedings/start-target?timestamp=2026-07-09T12:00", follow_redirects=False
+    )
+    assert r.status_code == 302
+    assert r.headers["location"] == "/login"
+
+
+def test_start_feed_target_without_previous_feeding(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/feedings/start-target?timestamp=2026-07-03T08:00")
+    assert r.status_code == 200
+    assert "65 ml" in r.text
+    assert "no previous feed" in r.text
+
+
+def test_start_feed_target_with_previous_feeding(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 9, 0),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+
+    r = client.get("/feedings/start-target?timestamp=2026-07-09T12:00")
+    assert r.status_code == 200
+    assert "70 ml" in r.text
+    assert "3h 0m after last feed" in r.text
+
+
 def test_settings_page_shows_backup_disabled(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     r = client.get("/settings")
@@ -805,6 +838,15 @@ def test_index_shows_start_control_when_no_feeding_start(client):
     assert 'id="complete-feeding-form"' not in r.text
 
 
+def test_start_feed_form_includes_target_preview_wiring(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'hx-get="/feedings/start-target"' in r.text
+    assert 'hx-trigger="load, change"' in r.text
+    assert 'id="start-feed-target-preview"' in r.text
+
+
 def test_index_shows_complete_form_when_feeding_start_exists(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
@@ -835,11 +877,12 @@ def test_settings_page_shows_in_progress_notice(client):
     assert "A feed is in progress" in r.text
 
 
-def test_start_feeding_rejects_future_timestamp(client):
+def test_start_feeding_accepts_future_timestamp(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
-    future = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+    future = (datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M")
     r = client.post("/feedings/start", data={"timestamp": future})
-    assert r.status_code == 400
+    assert r.status_code == 200
+    assert 'id="complete-feeding-form"' in r.text
 
 
 def test_complete_feeding_rejects_future_timestamp(client):
