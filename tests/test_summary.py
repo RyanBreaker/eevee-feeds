@@ -218,31 +218,6 @@ def test_get_chart_data_future_end_period_clamps_to_yesterday(session):
     assert all(d["target"] is not None for d in chart_data)
 
 
-def test_get_chart_data_computes_rolling_average(session):
-    config = get_or_create_config(session)
-    # Feedings on Jul 1-3 with totals 40, 50, 60
-    for i, total in enumerate([40, 50, 60], start=1):
-        feeding = Feeding(
-            timestamp=datetime(2026, 7, i, 12, 0),
-            po_amount=total // 2,
-            ng_amount=total - total // 2,
-        )
-        session.add(feeding)
-    session.commit()
-
-    chart_data = get_chart_data(session, config, datetime(2026, 7, 3, 6, 0))
-
-    jul_1 = next(d for d in chart_data if d["label"] == "Jul 1")
-    jul_2 = next(d for d in chart_data if d["label"] == "Jul 2")
-    jul_3 = next(d for d in chart_data if d["label"] == "Jul 3")
-    empty_day = next(d for d in chart_data if d["label"] == "Jun 30")
-
-    assert jul_1["rolling_avg"] == 40  # only one recorded day in window
-    assert jul_2["rolling_avg"] == 45  # (40 + 50) / 2
-    assert jul_3["rolling_avg"] == 50  # (40 + 50 + 60) / 3
-    assert empty_day["rolling_avg"] is None
-
-
 def test_get_chart_data_computes_trend_line(session):
     config = get_or_create_config(session)
     for i in range(5):

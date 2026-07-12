@@ -131,13 +131,4 @@ def get_chart_data(session: Session, config: TargetConfig, end_period: datetime)
         else:
             periods[i]["po_trend"] = None
 
-    for i, period in enumerate(periods):
-        window_totals = [
-            p["total"] for p in periods[max(0, i - 6) : i + 1] if p["total"] is not None
-        ]
-        if window_totals:
-            period["rolling_avg"] = round(sum(window_totals) / len(window_totals))
-        else:
-            period["rolling_avg"] = None
-
     return periods

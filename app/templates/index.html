@@ -98,17 +98,6 @@
           yAxisID: 'y',
         },
         {
-          label: '7-day avg',
-          data: chartData.map(d => d.rolling_avg),
-          type: 'line',
-          borderColor: 'rgba(245, 158, 11, 1)',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          pointRadius: 0,
-          fill: false,
-          yAxisID: 'y',
-        },
-        {
           label: 'PO %',
           data: chartData.map(d => d.po_pct),
           type: 'line',
