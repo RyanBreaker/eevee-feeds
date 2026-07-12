@@ -180,16 +180,25 @@ h2 {
 
 .target-status-green {
   color: #16a34a;
+}
+
+.progress-fill.target-status-green {
   background-color: #16a34a;
 }
 
 .target-status-yellow {
   color: #ca8a04;
+}
+
+.progress-fill.target-status-yellow {
   background-color: #ca8a04;
 }
 
 .target-status-red {
   color: var(--danger);
+}
+
+.progress-fill.target-status-red {
   background-color: var(--danger);
 }
 
