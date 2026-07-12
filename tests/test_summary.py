@@ -7,6 +7,7 @@ from app.models import Feeding
 from app.repository import get_or_create_config
 from app.summary import (
     _get_average_total_at_time,
+    attach_effective_targets,
     get_chart_data,
     get_current_period_start,
     get_period_summary,
@@ -371,3 +372,15 @@ def test_get_chart_data_computes_trend_line(session):
     data_days = [d for d in chart_data if d["total"] is not None]
     assert len(data_days) == 5
     assert all(d["po_trend"] is not None for d in data_days)
+
+
+def test_attach_effective_targets_sets_transient_attribute(session):
+    config = get_or_create_config(session)
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 10, 9, 0), po_amount=40, ng_amount=10
+    )
+    session.add(feeding)
+    session.commit()
+
+    result = attach_effective_targets(session, config, [(feeding, None)])
+    assert result[0][0].effective_target == 70

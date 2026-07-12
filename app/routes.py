@@ -18,24 +18,20 @@ from app.period import (
     format_duration,
     format_time,
     get_period_start,
-    get_target_feed_amount,
-    get_target_feed_interval,
-    get_target_volume,
 )
 from app.repository import (
     create_feeding_start,
     delete_feeding_start,
     get_all_feedings,
-    get_effective_target_per_feed,
     get_feeding_by_id,
     get_feeding_gap,
     get_feeding_start,
     get_last_feeding,
     get_or_create_config,
-    get_previous_feeding,
     update_feeding_start_timestamp,
 )
 from app.summary import get_chart_data, get_current_period_start, get_period_summary
+from app.target_amount import compute_feed_target, effective_target_for_feeding
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -59,21 +55,6 @@ def _require_timestamp_not_future(timestamp: datetime) -> None:
         raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
 
 
-def _compute_target_per_feed(
-    session: Session,
-    config: TargetConfig,
-    timestamp: datetime,
-    exclude_feeding_id: Optional[int] = None,
-) -> int:
-    period_start = get_period_start(timestamp)
-    target = get_target_volume(config, period_start.date())
-    previous_feeding = get_previous_feeding(
-        session, timestamp, exclude_feeding_id=exclude_feeding_id
-    )
-    previous_timestamp = previous_feeding.timestamp if previous_feeding else None
-    return get_target_feed_amount(target, timestamp, previous_timestamp)
-
-
 def _build_feeding(
     session: Session,
     config: TargetConfig,
@@ -82,7 +63,7 @@ def _build_feeding(
     ng_amount: int,
     notes: Optional[str],
 ) -> Feeding:
-    target_per_feed = _compute_target_per_feed(session, config, timestamp)
+    target_per_feed = compute_feed_target(session, config, timestamp).per_feed
     return Feeding(
         timestamp=timestamp,
         po_amount=po_amount,
@@ -217,29 +198,14 @@ def feed_target(
         selected_timestamp = datetime.now()
 
     config = get_or_create_config(session)
-    period_start = get_period_start(selected_timestamp)
-    target = get_target_volume(config, period_start.date())
-    previous_feeding = get_previous_feeding(
-        session, selected_timestamp, exclude_feeding_id=feeding_id
+    feed_target_result = compute_feed_target(
+        session, config, selected_timestamp, exclude_feeding_id=feeding_id
     )
-    previous_timestamp = previous_feeding.timestamp if previous_feeding else None
-    per_feed = get_target_feed_amount(
-        target, selected_timestamp, previous_timestamp
-    )
-    if previous_timestamp:
-        interval = get_target_feed_interval(selected_timestamp, previous_timestamp)
-        assert interval is not None
-        interval_minutes = int(interval.total_seconds() // 60)
-        actual_interval = selected_timestamp - previous_timestamp
-        actual_interval_minutes = int(actual_interval.total_seconds() // 60)
-    else:
-        interval_minutes = None
-        actual_interval_minutes = None
     return {
-        "target": target,
-        "per_feed": per_feed,
-        "interval_minutes": interval_minutes,
-        "actual_interval_minutes": actual_interval_minutes,
+        "target": feed_target_result.target_volume,
+        "per_feed": feed_target_result.per_feed,
+        "interval_minutes": feed_target_result.interval_minutes,
+        "actual_interval_minutes": feed_target_result.actual_interval_minutes,
     }
 
 
@@ -371,7 +337,7 @@ def feeding_row(
     feeding = get_feeding_or_404(session, feeding_id)
     config = get_or_create_config(session)
     gap = get_feeding_gap(session, feeding)
-    effective_target = get_effective_target_per_feed(session, config, feeding)
+    effective_target = effective_target_for_feeding(session, config, feeding)
     return templates.TemplateResponse(
         "partials/feeding_row.html",
         {
@@ -412,9 +378,9 @@ def update_feeding(
 
     feeding = get_feeding_or_404(session, feeding_id)
     config = get_or_create_config(session)
-    target_per_feed = _compute_target_per_feed(
+    target_per_feed = compute_feed_target(
         session, config, timestamp, exclude_feeding_id=feeding_id
-    )
+    ).per_feed
 
     feeding.timestamp = timestamp
     feeding.po_amount = po_amount
@@ -426,7 +392,7 @@ def update_feeding(
     session.commit()
 
     gap = get_feeding_gap(session, feeding)
-    effective_target = get_effective_target_per_feed(session, config, feeding)
+    effective_target = effective_target_for_feeding(session, config, feeding)
     response = templates.TemplateResponse(
         "partials/feeding_row.html",
         {

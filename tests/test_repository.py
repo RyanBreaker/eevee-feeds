@@ -5,15 +5,12 @@ from sqlmodel import Session
 
 from app.models import Feeding
 from app.repository import (
-    attach_effective_targets,
     get_all_feedings,
     get_default_target_config,
-    get_effective_target_per_feed,
     get_feeding_by_id,
     get_feeding_gap,
     get_feedings_for_period,
     get_feedings_with_gaps,
-    get_inferred_target_per_feed,
     get_last_feeding,
     get_or_create_config,
     get_previous_feeding,
@@ -246,43 +243,3 @@ def test_get_previous_feeding_returns_none_when_no_match(session):
     assert get_previous_feeding(session, datetime(2026, 7, 10, 8, 0)) is None
 
 
-def test_get_inferred_target_per_feed_uses_previous_feeding(session):
-    config = get_or_create_config(session)
-    previous = Feeding(
-        timestamp=datetime(2026, 7, 10, 6, 0), po_amount=30, ng_amount=10
-    )
-    current = Feeding(
-        timestamp=datetime(2026, 7, 10, 9, 0), po_amount=40, ng_amount=10
-    )
-    session.add_all([previous, current])
-    session.commit()
-
-    target = get_inferred_target_per_feed(session, config, current)
-    # 3-hour interval at 560 ml -> 560 * 3 / 24 = 70
-    assert target == 70
-
-
-def test_get_effective_target_per_feed_prefers_stored_value(session):
-    config = get_or_create_config(session)
-    feeding = Feeding(
-        timestamp=datetime(2026, 7, 10, 9, 0),
-        po_amount=40,
-        ng_amount=10,
-        target_per_feed=99,
-    )
-    session.add(feeding)
-    session.commit()
-
-    assert get_effective_target_per_feed(session, config, feeding) == 99
-
-
-def test_attach_effective_targets_sets_transient_attribute(session):
-    config = get_or_create_config(session)
-    feeding = Feeding(
-        timestamp=datetime(2026, 7, 10, 9, 0), po_amount=40, ng_amount=10
-    )
-    session.add(feeding)
-    session.commit()
-
-    result = attach_effective_targets(session, config, [(feeding, None)])
-    assert result[0][0].effective_target == 70

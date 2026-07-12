@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlmodel import Session
 
-from app.models import TargetConfig
+from app.models import Feeding, TargetConfig
 from app.period import (
     format_feeding_countdown,
     get_period_label,
@@ -12,11 +12,27 @@ from app.period import (
     linear_trend,
 )
 from app.repository import (
-    attach_effective_targets,
     get_feedings_for_period,
     get_feedings_with_gaps,
     get_last_feeding,
 )
+from app.target_amount import effective_target_for_feeding
+
+
+def attach_effective_targets(
+    session: Session,
+    config: TargetConfig,
+    feedings_with_gaps: list[tuple[Feeding, Optional[timedelta]]],
+) -> list[tuple[Feeding, Optional[timedelta]]]:
+    """Set ``feeding.effective_target`` on each feeding for template use."""
+    for feeding, _ in feedings_with_gaps:
+        # Bypass Pydantic so we can attach a transient computed value.
+        object.__setattr__(
+            feeding,
+            "effective_target",
+            effective_target_for_feeding(session, config, feeding),
+        )
+    return feedings_with_gaps
 
 
 def _get_average_total_at_time(
