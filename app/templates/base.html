@@ -56,19 +56,6 @@
       });
     }
 
-    document.body.addEventListener('click', function(e) {
-      const toggle = e.target.closest('.feeding-card-toggle');
-      if (!toggle) return;
-      const card = toggle.closest('.feeding-card');
-      if (!card) return;
-      const details = card.querySelector('.feeding-card-details');
-      if (!details) return;
-      const expanded = details.hidden;
-      details.hidden = !expanded;
-      toggle.setAttribute('aria-expanded', String(expanded));
-      toggle.textContent = expanded ? '▲' : '▼';
-    });
-
     document.addEventListener('DOMContentLoaded', function() {
       updateAutoDurations();
       updateFeedCountdowns();
@@ -76,6 +63,19 @@
         updateAutoDurations();
         updateFeedCountdowns();
       }, 10000);
+
+      document.body.addEventListener('click', function(e) {
+        const toggle = e.target.closest('.feeding-card-toggle');
+        if (!toggle) return;
+        const card = toggle.closest('.feeding-card');
+        if (!card) return;
+        const details = card.querySelector('.feeding-card-details');
+        if (!details) return;
+        const expanded = details.hidden;
+        details.hidden = !expanded;
+        toggle.setAttribute('aria-expanded', String(expanded));
+        toggle.textContent = expanded ? '▲' : '▼';
+      });
     });
   </script>
 </head>

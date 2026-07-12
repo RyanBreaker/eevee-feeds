@@ -445,18 +445,38 @@ button.danger {
 }
 
 .feeding-card-toggle {
-  background: transparent;
-  border: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   color: var(--muted);
   cursor: pointer;
-  padding: 0.25rem;
-  font-size: 0.9rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 1rem;
+  line-height: 1;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.feeding-card-toggle:active {
+  background: var(--border);
 }
 
 .feeding-card-details {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
+}
+
+.feeding-card-details[hidden] {
+  display: none;
+}
+
+.feeding-card-details:not([hidden]) {
+  display: block;
 }
 
 .feeding-card-detail {
