@@ -214,6 +214,14 @@ h2 {
   color: var(--danger);
 }
 
+.trend-status-green {
+  color: #16a34a;
+}
+
+.trend-status-red {
+  color: var(--danger);
+}
+
 .form-row {
   display: flex;
   flex-wrap: wrap;

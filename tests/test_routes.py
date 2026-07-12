@@ -261,6 +261,42 @@ def test_summary_cards_show_vs_target_when_targets_present(client, test_engine):
     assert 'style="width: 90%"' in r.text
 
 
+def test_summary_cards_show_trend_when_history_present(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    now = datetime.now().replace(second=0, microsecond=0)
+    current_period_start = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now.hour < 6:
+        current_period_start -= timedelta(days=1)
+
+    with Session(test_engine) as session:
+        # Current feeding
+        session.add(
+            Feeding(
+                timestamp=current_period_start + timedelta(hours=2),
+                po_amount=100,
+                ng_amount=0,
+            )
+        )
+        # Three past days with 50 ml at same time of day
+        for day_offset in range(1, 4):
+            past_time = current_period_start - timedelta(days=day_offset) + timedelta(hours=1)
+            session.add(
+                Feeding(
+                    timestamp=past_time,
+                    po_amount=50,
+                    ng_amount=0,
+                )
+            )
+        session.commit()
+
+    r = client.get("/summary-cards")
+    assert r.status_code == 200
+    assert "Trend" in r.text
+    assert "vs 7-day avg" in r.text
+    assert "On pace for" in r.text
+
+
 def test_next_feeding_window_on_today_page(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
 

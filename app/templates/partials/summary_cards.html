@@ -11,6 +11,18 @@
       {% endif %}
     </div>
   </div>
+  {% if summary.trend_variance is not none %}
+  <div class="summary-card">
+    <div class="summary-label">Trend</div>
+    <div class="summary-value {{ summary.trend_status_class }}">
+      {{ "%+d" | format(summary.trend_variance) }} ml
+      <div class="summary-sub">vs 7-day avg</div>
+      {% if summary.trend_pace is not none %}
+      <div class="summary-sub">On pace for {{ summary.trend_pace }} ml</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 
   <div class="summary-card">
     <div class="summary-label">PO / NG</div>

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Optional
 
 from sqlmodel import Session
 
@@ -12,9 +13,32 @@ from app.period import (
 )
 from app.repository import (
     attach_effective_targets,
+    get_feedings_for_period,
     get_feedings_with_gaps,
     get_last_feeding,
 )
+
+
+def _get_average_total_at_time(
+    session: Session, reference_time: datetime, days: int = 7
+) -> Optional[float]:
+    """Return the average total intake at the same time of day over the last N days."""
+    current_period_start = get_period_start(reference_time)
+    time_into_period = reference_time - current_period_start
+    totals = []
+    days_with_feedings = 0
+    for day_offset in range(1, days + 1):
+        past_period_start = current_period_start - timedelta(days=day_offset)
+        past_cutoff = past_period_start + time_into_period
+        feedings = get_feedings_for_period(session, past_period_start)
+        feedings_up_to_time = [f for f in feedings if f.timestamp <= past_cutoff]
+        if feedings_up_to_time:
+            days_with_feedings += 1
+        total = sum(f.po_amount + f.ng_amount for f in feedings_up_to_time)
+        totals.append(total)
+    if days_with_feedings < 3:
+        return None
+    return sum(totals) / len(totals)
 
 
 def get_current_period_start() -> datetime:
@@ -59,10 +83,14 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     next_feeding_countdown_class = ""
     next_feeding_window_start_ts = None
     next_feeding_window_end_ts = None
+    trend_variance = None
+    trend_status_class = ""
+    trend_pace = None
     if period_start == get_current_period_start():
+        now = datetime.now()
         last_feeding = get_last_feeding(session)
         if last_feeding:
-            time_since_last = datetime.now() - last_feeding.timestamp
+            time_since_last = now - last_feeding.timestamp
             next_feeding_window = (
                 last_feeding.timestamp + timedelta(hours=2),
                 last_feeding.timestamp + timedelta(hours=4),
@@ -76,6 +104,16 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
                 next_feeding_window[0].timestamp()
             )
             next_feeding_window_end_ts = int(next_feeding_window[1].timestamp())
+
+        avg_total_at_time = _get_average_total_at_time(session, now)
+        if avg_total_at_time is not None:
+            trend_variance = round(total - avg_total_at_time)
+            trend_status_class = (
+                "trend-status-green" if trend_variance >= 0 else "trend-status-red"
+            )
+        elapsed_hours = (now - period_start).total_seconds() / 3600
+        if elapsed_hours >= 1 and total > 0:
+            trend_pace = round(total / elapsed_hours * 24)
 
     return {
         "po": po,
@@ -95,6 +133,9 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "next_feeding_countdown_class": next_feeding_countdown_class,
         "next_feeding_window_start_ts": next_feeding_window_start_ts,
         "next_feeding_window_end_ts": next_feeding_window_end_ts,
+        "trend_variance": trend_variance,
+        "trend_status_class": trend_status_class,
+        "trend_pace": trend_pace,
     }
 
 

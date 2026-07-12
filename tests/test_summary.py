@@ -5,7 +5,12 @@ from sqlmodel import Session
 
 from app.models import Feeding
 from app.repository import get_or_create_config
-from app.summary import get_chart_data, get_current_period_start, get_period_summary
+from app.summary import (
+    _get_average_total_at_time,
+    get_chart_data,
+    get_current_period_start,
+    get_period_summary,
+)
 
 
 @pytest.fixture
@@ -179,6 +184,139 @@ def test_get_period_summary_with_multiple_feedings_computes_avg_gap(session):
     summary = get_period_summary(session, config, period_start)
 
     assert summary["avg_gap"] == timedelta(hours=2)
+
+
+def test_get_average_total_at_time_computes_average(session):
+    # Reference: 2026-07-10 12:00, period start 06:00
+    reference_time = datetime(2026, 7, 10, 12, 0)
+    # Three days with feedings before 12:00
+    for day, po in [(7, 30), (8, 40), (9, 50)]:
+        session.add(
+            Feeding(
+                timestamp=datetime(2026, 7, day, 10, 0),
+                po_amount=po,
+                ng_amount=0,
+            )
+        )
+    # Day 6 has a feeding after the cutoff (should be excluded)
+    session.add(
+        Feeding(
+            timestamp=datetime(2026, 7, 6, 14, 0),
+            po_amount=100,
+            ng_amount=0,
+        )
+    )
+    session.commit()
+
+    avg = _get_average_total_at_time(session, reference_time)
+    # 7 days: Jul 3-9. Jul 7,8,9 = 30,40,50; Jul 3,4,5 = 0; Jul 6 = 0 (after cutoff)
+    assert avg == (30 + 40 + 50) / 7
+
+
+def test_get_average_total_at_time_returns_none_with_too_few_days(session):
+    reference_time = datetime(2026, 7, 10, 12, 0)
+    for day in [8, 9]:
+        session.add(
+            Feeding(
+                timestamp=datetime(2026, 7, day, 10, 0),
+                po_amount=30,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    avg = _get_average_total_at_time(session, reference_time)
+    assert avg is None
+
+
+def test_get_period_summary_includes_trend_for_current_period(session, monkeypatch):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start()
+    now = current_period_start + timedelta(hours=2)
+
+    class FakeDatetime:
+        @classmethod
+        def now(cls):
+            return now
+
+        @classmethod
+        def utcnow(cls):
+            return now
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", FakeDatetime)
+
+    # Current feeding 30 min ago: total 100
+    session.add(
+        Feeding(
+            timestamp=now - timedelta(minutes=30),
+            po_amount=100,
+            ng_amount=0,
+        )
+    )
+    # Three past days with 50 ml before the same time of day
+    for day_offset in range(1, 4):
+        past_time = current_period_start - timedelta(days=day_offset) + timedelta(hours=1)
+        session.add(
+            Feeding(
+                timestamp=past_time,
+                po_amount=50,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    # Three past days at 50 ml plus four empty days in the 7-day window
+    expected_avg = (50 * 3) / 7
+    assert summary["trend_variance"] == round(100 - expected_avg)
+    assert summary["trend_status_class"] == "trend-status-green"
+    # Pace = 100 ml over 2h * 24h = 1200 ml
+    assert summary["trend_pace"] == 1200
+
+
+def test_get_period_summary_no_trend_pace_under_one_hour(session, monkeypatch):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start()
+    now = current_period_start + timedelta(minutes=30)
+
+    class FakeDatetime:
+        @classmethod
+        def now(cls):
+            return now
+
+        @classmethod
+        def utcnow(cls):
+            return now
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", FakeDatetime)
+
+    session.add(
+        Feeding(
+            timestamp=now - timedelta(minutes=10),
+            po_amount=100,
+            ng_amount=0,
+        )
+    )
+    for day_offset in range(1, 4):
+        past_time = current_period_start - timedelta(days=day_offset) + timedelta(minutes=10)
+        session.add(
+            Feeding(
+                timestamp=past_time,
+                po_amount=50,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["trend_variance"] is not None
+    assert summary["trend_pace"] is None
 
 
 def test_get_chart_data_excludes_empty_periods(session):
