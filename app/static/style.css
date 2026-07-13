@@ -455,6 +455,26 @@ button.danger {
   color: white;
 }
 
+.badge-snack {
+  background: #fde68a;
+  color: #92400e;
+}
+
+.snack-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.snack-checkbox input[type="checkbox"] {
+  margin: 0;
+}
+
+.feeding-card-edit-fields .snack-checkbox {
+  flex-direction: row !important;
+}
+
 .feeding-card-toggle {
   background: var(--bg);
   border: 1px solid var(--border);

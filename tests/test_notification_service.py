@@ -301,3 +301,45 @@ def test_get_status_disabled(test_engine):
 
     assert status["enabled"] is False
     assert status["topic"] is None
+
+
+@pytest.mark.asyncio
+async def test_run_check_ignores_snacks(test_engine):
+    captured = []
+
+    def handler(request: httpx.Request):
+        captured.append({"content": request.content})
+        return httpx.Response(200, text="ok")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    with Session(test_engine) as session:
+        real_feeding = Feeding(
+            timestamp=now - timedelta(hours=5),
+            po_amount=30,
+            ng_amount=10,
+        )
+        snack = Feeding(
+            timestamp=now - timedelta(hours=1),
+            po_amount=10,
+            ng_amount=0,
+            is_snack=True,
+        )
+        session.add_all([real_feeding, snack])
+        session.commit()
+        real_feeding_id = real_feeding.id
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with Session(test_engine) as session:
+        await service.run_check(session, client, now=now)
+
+    assert len(captured) == 3
+    data = json.loads(captured[2]["content"])
+    assert data["title"] == "🍼 4h 0m since last feed"
+
+    with Session(test_engine) as session:
+        logs = session.exec(
+            select(NotificationLog).where(NotificationLog.feeding_id == real_feeding_id)
+        ).all()
+        assert len(logs) == 3

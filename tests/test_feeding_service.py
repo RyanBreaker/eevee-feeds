@@ -48,6 +48,23 @@ def test_create_feeding_rejects_future_timestamp(session):
         create_feeding(session, config, future, 40, 10, None)
 
 
+def test_create_feeding_snack_has_no_target(session):
+    config = get_or_create_config(session)
+
+    feeding = create_feeding(
+        session,
+        config,
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=20,
+        ng_amount=5,
+        notes="snack",
+        is_snack=True,
+    )
+
+    assert feeding.is_snack is True
+    assert feeding.target_per_feed is None
+
+
 def test_update_feeding_updates_fields(session):
     config = get_or_create_config(session)
     feeding = create_feeding(
@@ -93,6 +110,33 @@ def test_update_feeding_rejects_future_timestamp(session):
         update_feeding(session, config, feeding, future, 50, 5, None)
 
 
+def test_update_feeding_to_snack_clears_target(session):
+    config = get_or_create_config(session)
+    feeding = create_feeding(
+        session,
+        config,
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=40,
+        ng_amount=10,
+        notes=None,
+    )
+    assert feeding.target_per_feed is not None
+
+    updated = update_feeding(
+        session,
+        config,
+        feeding,
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=40,
+        ng_amount=10,
+        notes=None,
+        is_snack=True,
+    )
+
+    assert updated.is_snack is True
+    assert updated.target_per_feed is None
+
+
 def test_complete_feeding_creates_feeding_and_removes_start(session):
     config = get_or_create_config(session)
     feeding_start = FeedingStart(timestamp=datetime(2026, 7, 10, 8, 0))
@@ -122,6 +166,27 @@ def test_complete_feeding_rejects_future_timestamp(session):
 
     with pytest.raises(ValueError, match="Timestamp cannot be in the future"):
         complete_feeding(session, config, feeding_start, future, 40, 10, None)
+
+
+def test_complete_feeding_snack_has_no_target(session):
+    config = get_or_create_config(session)
+    feeding_start = FeedingStart(timestamp=datetime(2026, 7, 10, 8, 0))
+    session.add(feeding_start)
+    session.commit()
+
+    feeding = complete_feeding(
+        session,
+        config,
+        feeding_start,
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=20,
+        ng_amount=5,
+        notes="snack",
+        is_snack=True,
+    )
+
+    assert feeding.is_snack is True
+    assert feeding.target_per_feed is None
 
 
 def test_delete_feeding_removes_feeding(session):

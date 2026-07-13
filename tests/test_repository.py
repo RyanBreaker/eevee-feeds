@@ -85,6 +85,26 @@ def test_get_last_feeding_empty(session):
     assert get_last_feeding(session) is None
 
 
+def test_get_last_feeding_skips_snacks(session):
+    snack = Feeding(
+        timestamp=datetime(2026, 7, 10, 10, 0),
+        po_amount=10,
+        ng_amount=20,
+        is_snack=True,
+    )
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 10, 8, 0),
+        po_amount=15,
+        ng_amount=25,
+    )
+    session.add_all([snack, feeding])
+    session.commit()
+
+    last = get_last_feeding(session, skip_snacks=True)
+    assert last is not None
+    assert last.timestamp == datetime(2026, 7, 10, 8, 0)
+
+
 def test_get_all_feedings_orders_by_timestamp(session):
     feeding1 = Feeding(
         timestamp=datetime(2026, 7, 10, 10, 0), po_amount=10, ng_amount=20
@@ -241,5 +261,76 @@ def test_get_previous_feeding_returns_none_when_no_match(session):
     session.commit()
 
     assert get_previous_feeding(session, datetime(2026, 7, 10, 8, 0)) is None
+
+
+def test_get_previous_feeding_skips_snacks(session):
+    snack = Feeding(
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=10,
+        ng_amount=20,
+        is_snack=True,
+    )
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 10, 8, 0),
+        po_amount=15,
+        ng_amount=25,
+    )
+    session.add_all([snack, feeding])
+    session.commit()
+
+    previous = get_previous_feeding(
+        session, datetime(2026, 7, 10, 12, 0), skip_snacks=True
+    )
+    assert previous is not None
+    assert previous.timestamp == datetime(2026, 7, 10, 8, 0)
+
+
+def test_get_feedings_with_gaps_skips_snacks(session):
+    previous = Feeding(
+        timestamp=datetime(2026, 7, 10, 5, 0), po_amount=10, ng_amount=20
+    )
+    snack = Feeding(
+        timestamp=datetime(2026, 7, 10, 8, 0),
+        po_amount=5,
+        ng_amount=5,
+        is_snack=True,
+    )
+    current = Feeding(
+        timestamp=datetime(2026, 7, 10, 10, 0), po_amount=20, ng_amount=30
+    )
+    session.add_all([previous, snack, current])
+    session.commit()
+
+    period_start = datetime(2026, 7, 10, 6, 0)
+    feedings_with_gaps = get_feedings_with_gaps(session, period_start)
+    assert len(feedings_with_gaps) == 2
+
+    first_feeding, first_gap = feedings_with_gaps[0]
+    assert first_feeding.timestamp == datetime(2026, 7, 10, 8, 0)
+    assert first_gap == timedelta(hours=3)
+
+    second_feeding, second_gap = feedings_with_gaps[1]
+    assert second_feeding.timestamp == datetime(2026, 7, 10, 10, 0)
+    assert second_gap == timedelta(hours=5)
+
+
+def test_get_feeding_gap_skips_snacks(session):
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 10, 8, 0), po_amount=10, ng_amount=20
+    )
+    snack = Feeding(
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=5,
+        ng_amount=5,
+        is_snack=True,
+    )
+    current = Feeding(
+        timestamp=datetime(2026, 7, 10, 10, 0), po_amount=15, ng_amount=25
+    )
+    session.add_all([feeding, snack, current])
+    session.commit()
+
+    gap = get_feeding_gap(session, current)
+    assert gap == timedelta(hours=2)
 
 

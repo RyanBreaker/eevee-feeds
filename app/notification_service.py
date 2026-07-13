@@ -114,7 +114,7 @@ class NotificationService:
         session.commit()
 
     def get_status(self, session: Session) -> dict:
-        last_feeding = get_last_feeding(session)
+        last_feeding = get_last_feeding(session, skip_snacks=True)
 
         next_notification = None
         if self.topic and last_feeding:
@@ -146,7 +146,7 @@ class NotificationService:
     async def send_test(
         self, session: Session, client: Optional[httpx.AsyncClient] = None
     ) -> bool:
-        last_feeding = get_last_feeding(session)
+        last_feeding = get_last_feeding(session, skip_snacks=True)
         if not last_feeding:
             return False
 
@@ -168,7 +168,7 @@ class NotificationService:
         if now is None:
             now = datetime.now()
 
-        last_feeding = get_last_feeding(session)
+        last_feeding = get_last_feeding(session, skip_snacks=True)
         if not last_feeding:
             logger.debug("No feedings logged yet; skipping notification check")
             return

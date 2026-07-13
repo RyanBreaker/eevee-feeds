@@ -87,7 +87,9 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     else:
         target_status_class = "target-status-red"
 
-    gaps = [gap for _, gap in feedings_with_gaps if gap]
+    gaps = [
+        gap for feeding, gap in feedings_with_gaps if gap and not feeding.is_snack
+    ]
     avg_gap = None
     if gaps:
         avg_seconds = sum(gap.total_seconds() for gap in gaps) / len(gaps)
@@ -104,7 +106,7 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     trend_pace = None
     if period_start == get_current_period_start():
         now = datetime.now()
-        last_feeding = get_last_feeding(session)
+        last_feeding = get_last_feeding(session, skip_snacks=True)
         if last_feeding:
             time_since_last = now - last_feeding.timestamp
             next_feeding_window = (

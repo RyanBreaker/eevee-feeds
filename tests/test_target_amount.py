@@ -105,6 +105,32 @@ def test_compute_feed_target_excludes_given_feeding_id(session):
     assert result.interval_minutes == 240
 
 
+def test_compute_feed_target_skips_snacks(session):
+    config = get_or_create_config(session)
+    config.start_volume = 520
+    config.increment = 0
+    session.add(config)
+
+    real_feeding = Feeding(
+        timestamp=datetime(2026, 7, 3, 5, 0), po_amount=30, ng_amount=10
+    )
+    snack = Feeding(
+        timestamp=datetime(2026, 7, 3, 7, 0),
+        po_amount=10,
+        ng_amount=5,
+        is_snack=True,
+    )
+    session.add_all([real_feeding, snack])
+    session.commit()
+
+    result = compute_feed_target(session, config, datetime(2026, 7, 3, 9, 0))
+
+    # Interval should be from real_feeding at 5:00, not snack at 7:00 -> 4 h
+    assert result.per_feed == 87
+    assert result.actual_interval_minutes == 240
+    assert result.interval_minutes == 240
+
+
 def test_compute_feed_target_clamps_to_floor(session):
     config = get_or_create_config(session)
     config.start_volume = 560
@@ -168,3 +194,21 @@ def test_effective_target_for_feeding_infers_when_not_stored(session):
     session.commit()
 
     assert effective_target_for_feeding(session, config, feeding) == 65
+
+
+def test_effective_target_for_snack_is_none(session):
+    config = get_or_create_config(session)
+    config.start_volume = 520
+    config.increment = 0
+    session.add(config)
+
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=40,
+        ng_amount=10,
+        is_snack=True,
+    )
+    session.add(feeding)
+    session.commit()
+
+    assert effective_target_for_feeding(session, config, feeding) is None

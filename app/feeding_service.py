@@ -19,13 +19,17 @@ def create_feeding(
     po_amount: int,
     ng_amount: int,
     notes: Optional[str],
+    is_snack: bool = False,
 ) -> Feeding:
     _require_timestamp_not_future(timestamp)
-    target_per_feed = compute_feed_target(session, config, timestamp).per_feed
+    target_per_feed = None
+    if not is_snack:
+        target_per_feed = compute_feed_target(session, config, timestamp).per_feed
     feeding = Feeding(
         timestamp=timestamp,
         po_amount=po_amount,
         ng_amount=ng_amount,
+        is_snack=is_snack,
         target_per_feed=target_per_feed,
         notes=notes,
     )
@@ -43,15 +47,19 @@ def update_feeding(
     po_amount: int,
     ng_amount: int,
     notes: Optional[str],
+    is_snack: bool = False,
 ) -> Feeding:
     _require_timestamp_not_future(timestamp)
-    target_per_feed = compute_feed_target(
-        session, config, timestamp, exclude_feeding_id=feeding.id
-    ).per_feed
+    target_per_feed = None
+    if not is_snack:
+        target_per_feed = compute_feed_target(
+            session, config, timestamp, exclude_feeding_id=feeding.id
+        ).per_feed
 
     feeding.timestamp = timestamp
     feeding.po_amount = po_amount
     feeding.ng_amount = ng_amount
+    feeding.is_snack = is_snack
     feeding.target_per_feed = target_per_feed
     feeding.notes = notes
     feeding.updated_at = datetime.utcnow()
@@ -69,13 +77,17 @@ def complete_feeding(
     po_amount: int,
     ng_amount: int,
     notes: Optional[str],
+    is_snack: bool = False,
 ) -> Feeding:
     _require_timestamp_not_future(timestamp)
-    target_per_feed = compute_feed_target(session, config, timestamp).per_feed
+    target_per_feed = None
+    if not is_snack:
+        target_per_feed = compute_feed_target(session, config, timestamp).per_feed
     feeding = Feeding(
         timestamp=timestamp,
         po_amount=po_amount,
         ng_amount=ng_amount,
+        is_snack=is_snack,
         target_per_feed=target_per_feed,
         notes=notes,
     )

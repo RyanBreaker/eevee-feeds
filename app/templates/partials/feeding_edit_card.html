@@ -22,6 +22,10 @@
         Notes
         <input type="text" name="notes" value="{{ feeding.notes or '' }}" placeholder="Notes">
       </label>
+      <label class="snack-checkbox">
+        <input type="checkbox" name="is_snack" value="on" {% if feeding.is_snack %}checked{% endif %}>
+        Snack
+      </label>
     </div>
     <div class="feeding-card-actions">
       <button type="submit">Save</button>

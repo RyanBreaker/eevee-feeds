@@ -59,6 +59,25 @@ def test_create_feeding(client, test_engine):
     assert feeding.target_per_feed == 70
 
 
+def test_create_feeding_snack(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post(
+        "/feedings",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "10",
+            "ng_amount": "5",
+            "is_snack": "on",
+        },
+    )
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        feeding = session.get(Feeding, 1)
+    assert feeding.is_snack is True
+    assert feeding.target_per_feed is None
+
+
 def test_export_csv(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     client.post(
@@ -71,8 +90,8 @@ def test_export_csv(client):
     )
     r = client.get("/export")
     assert r.status_code == 200
-    assert "Timestamp,PO,NG,Total,Target,Notes" in r.text
-    assert "30,10,40,70" in r.text
+    assert "Timestamp,PO,NG,Total,Target,Is Snack,Notes" in r.text
+    assert "30,10,40,70,false" in r.text
 
 
 def test_simple_test_notification(client, monkeypatch, test_engine):
@@ -168,6 +187,37 @@ def test_update_feeding_renders_table_row(client, test_engine):
     with Session(test_engine) as session:
         feeding = session.get(Feeding, feeding_id)
     assert feeding.target_per_feed == 70
+
+
+def test_update_feeding_to_snack(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0),
+            po_amount=30,
+            ng_amount=10,
+            notes="initial",
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.put(
+        f"/feedings/{feeding_id}",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "10",
+            "ng_amount": "5",
+            "is_snack": "on",
+        },
+    )
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        feeding = session.get(Feeding, feeding_id)
+    assert feeding.is_snack is True
+    assert feeding.target_per_feed is None
 
 
 def test_feeding_row_shows_variance_when_over_target(client, test_engine):
@@ -764,6 +814,27 @@ def test_complete_feeding_creates_feeding_and_deletes_start(client, test_engine)
     assert feeding.notes == "done"
     assert feeding.target_per_feed == 70
     assert feeding_start is None
+
+
+def test_complete_feeding_snack(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    r = client.post(
+        "/feedings/complete",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "10",
+            "ng_amount": "5",
+            "is_snack": "on",
+        },
+    )
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        feeding = session.exec(select(Feeding)).first()
+    assert feeding.is_snack is True
+    assert feeding.target_per_feed is None
 
 
 def test_cancel_feeding_start_deletes_it(client, test_engine):

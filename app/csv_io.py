@@ -6,7 +6,7 @@ from typing import List, Optional, TextIO
 
 from app.models import Feeding
 
-SCHEMA = ["Timestamp", "PO", "NG", "Total", "Target", "Notes"]
+SCHEMA = ["Timestamp", "PO", "NG", "Total", "Target", "Is Snack", "Notes"]
 _TIMESTAMP_FORMAT = "%a, %b %d, %Y %I:%M %p"
 
 
@@ -22,6 +22,10 @@ def _format_timestamp(dt: datetime) -> str:
     return dt.strftime(_TIMESTAMP_FORMAT)
 
 
+def _parse_bool(raw: Optional[str]) -> bool:
+    return raw is not None and raw.strip().lower() in {"true", "1", "yes"}
+
+
 @dataclass
 class FeedingCsvRow:
     timestamp: datetime
@@ -29,6 +33,7 @@ class FeedingCsvRow:
     ng_amount: int
     notes: Optional[str] = None
     target_per_feed: Optional[int] = None
+    is_snack: bool = False
 
 
 class FeedingCsvReader:
@@ -50,6 +55,9 @@ class FeedingCsvReader:
                     )
             target_raw = row.get("Target")
             target_per_feed = int(target_raw) if target_raw else None
+            is_snack = _parse_bool(row.get("Is Snack"))
+            if is_snack:
+                target_per_feed = None
             rows.append(
                 FeedingCsvRow(
                     timestamp=_parse_timestamp(row["Timestamp"]),
@@ -57,6 +65,7 @@ class FeedingCsvReader:
                     ng_amount=ng_amount,
                     notes=row.get("Notes") or None,
                     target_per_feed=target_per_feed,
+                    is_snack=is_snack,
                 )
             )
         return rows
@@ -68,6 +77,7 @@ class FeedingCsvReader:
                 po_amount=row.po_amount,
                 ng_amount=row.ng_amount,
                 target_per_feed=row.target_per_feed,
+                is_snack=row.is_snack,
                 notes=row.notes,
             )
             for row in self.read_rows(source)
@@ -88,6 +98,7 @@ class FeedingCsvWriter:
                     "NG": row.ng_amount,
                     "Total": row.po_amount + row.ng_amount,
                     "Target": row.target_per_feed if row.target_per_feed is not None else "",
+                    "Is Snack": "true" if row.is_snack else "false",
                     "Notes": row.notes or "",
                 }
             )
@@ -103,6 +114,7 @@ class FeedingCsvWriter:
                 ng_amount=f.ng_amount,
                 notes=f.notes,
                 target_per_feed=f.target_per_feed,
+                is_snack=f.is_snack,
             )
             for f in feedings
         ]

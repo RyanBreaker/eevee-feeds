@@ -12,6 +12,7 @@
       <div class="feeding-card-time-sub">{{ feeding.timestamp.strftime("%I:%M %p") }}</div>
     </div>
     <div class="feeding-card-badges">
+      {% if feeding.is_snack %}<span class="badge badge-snack">Snack</span>{% endif %}
       <span class="badge badge-po">PO {{ feeding.po_amount }}ml</span>
       <span class="badge badge-ng">NG {{ feeding.ng_amount }}ml</span>
       <span class="badge badge-total">Total {{ total }}ml</span>

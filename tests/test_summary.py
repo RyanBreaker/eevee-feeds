@@ -70,6 +70,32 @@ def test_get_period_summary_includes_target_variance(session):
     assert summary["target_variance"] == -10
 
 
+def test_get_period_summary_includes_snack_volume(session):
+    config = get_or_create_config(session)
+    config.start_volume = 100
+    config.increment = 0
+    session.add(config)
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 3, 8, 0),
+        po_amount=50,
+        ng_amount=10,
+    )
+    snack = Feeding(
+        timestamp=datetime(2026, 7, 3, 10, 0),
+        po_amount=20,
+        ng_amount=0,
+        is_snack=True,
+    )
+    session.add_all([feeding, snack])
+    session.commit()
+
+    period_start = datetime(2026, 7, 3, 6, 0)
+    summary = get_period_summary(session, config, period_start)
+
+    assert summary["total"] == 80
+    assert summary["po_pct"] == 70 / 80 * 100
+
+
 def test_get_period_summary_infers_target_for_legacy_feeding(session):
     config = get_or_create_config(session)
     config.start_volume = 100
@@ -170,6 +196,27 @@ def test_get_period_summary_for_current_period_includes_next_window(session):
     assert summary["next_feeding_window_start_ts"] < summary["next_feeding_window_end_ts"]
 
 
+def test_get_period_summary_next_window_ignores_snack(session, monkeypatch):
+    config = get_or_create_config(session)
+    real_feeding_time = datetime.now() - timedelta(hours=5)
+    snack_time = datetime.now() - timedelta(hours=1)
+    real_feeding = Feeding(timestamp=real_feeding_time, po_amount=30, ng_amount=10)
+    snack = Feeding(
+        timestamp=snack_time, po_amount=10, ng_amount=0, is_snack=True
+    )
+    session.add_all([real_feeding, snack])
+    session.commit()
+
+    current_period = get_current_period_start()
+    summary = get_period_summary(session, config, current_period)
+
+    assert summary["time_since_last"] is not None
+    assert summary["next_feeding_window"] is not None
+    start, end = summary["next_feeding_window"]
+    assert start == real_feeding_time + timedelta(hours=2)
+    assert end == real_feeding_time + timedelta(hours=4)
+
+
 def test_get_period_summary_with_multiple_feedings_computes_avg_gap(session):
     config = get_or_create_config(session)
     feeding1 = Feeding(
@@ -185,6 +232,29 @@ def test_get_period_summary_with_multiple_feedings_computes_avg_gap(session):
     summary = get_period_summary(session, config, period_start)
 
     assert summary["avg_gap"] == timedelta(hours=2)
+
+
+def test_get_period_summary_avg_gap_skips_snacks(session):
+    config = get_or_create_config(session)
+    feeding1 = Feeding(
+        timestamp=datetime(2026, 7, 10, 8, 0), po_amount=10, ng_amount=10
+    )
+    snack = Feeding(
+        timestamp=datetime(2026, 7, 10, 10, 0),
+        po_amount=5,
+        ng_amount=5,
+        is_snack=True,
+    )
+    feeding2 = Feeding(
+        timestamp=datetime(2026, 7, 10, 12, 0), po_amount=20, ng_amount=20
+    )
+    session.add_all([feeding1, snack, feeding2])
+    session.commit()
+
+    period_start = datetime(2026, 7, 10, 6, 0)
+    summary = get_period_summary(session, config, period_start)
+
+    assert summary["avg_gap"] == timedelta(hours=4)
 
 
 def test_get_average_total_at_time_computes_average(session):
@@ -384,3 +454,18 @@ def test_attach_effective_targets_sets_transient_attribute(session):
 
     result = attach_effective_targets(session, config, [(feeding, None)])
     assert result[0][0].effective_target == 70
+
+
+def test_attach_effective_targets_snack_has_no_target(session):
+    config = get_or_create_config(session)
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=40,
+        ng_amount=10,
+        is_snack=True,
+    )
+    session.add(feeding)
+    session.commit()
+
+    result = attach_effective_targets(session, config, [(feeding, None)])
+    assert result[0][0].effective_target is None

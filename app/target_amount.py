@@ -31,7 +31,7 @@ def compute_feed_target(
     period_start = get_period_start(timestamp)
     target_volume = get_target_volume(config, period_start.date())
     previous_feeding = get_previous_feeding(
-        session, timestamp, exclude_feeding_id=exclude_feeding_id
+        session, timestamp, exclude_feeding_id=exclude_feeding_id, skip_snacks=True
     )
     previous_timestamp = previous_feeding.timestamp if previous_feeding else None
     per_feed = get_target_feed_amount(target_volume, timestamp, previous_timestamp)
@@ -56,7 +56,9 @@ def compute_feed_target(
 
 def effective_target_for_feeding(
     session: Session, config: TargetConfig, feeding: Feeding
-) -> int:
+) -> Optional[int]:
+    if feeding.is_snack:
+        return None
     if feeding.target_per_feed is not None:
         return feeding.target_per_feed
     return compute_feed_target(

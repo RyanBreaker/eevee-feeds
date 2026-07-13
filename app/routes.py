@@ -203,13 +203,14 @@ def create_feeding(
     po_amount: int = Form(...),
     ng_amount: int = Form(...),
     notes: Optional[str] = Form(None),
+    is_snack: bool = Form(False),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
     try:
         feeding = feeding_service.create_feeding(
-            session, config, timestamp, po_amount, ng_amount, notes
+            session, config, timestamp, po_amount, ng_amount, notes, is_snack
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -317,6 +318,7 @@ def complete_feeding(
     po_amount: int = Form(...),
     ng_amount: int = Form(...),
     notes: Optional[str] = Form(None),
+    is_snack: bool = Form(False),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
@@ -327,7 +329,7 @@ def complete_feeding(
     config = get_or_create_config(session)
     try:
         feeding = feeding_service.complete_feeding(
-            session, config, feeding_start, timestamp, po_amount, ng_amount, notes
+            session, config, feeding_start, timestamp, po_amount, ng_amount, notes, is_snack
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -393,6 +395,7 @@ def update_feeding(
     po_amount: int = Form(...),
     ng_amount: int = Form(...),
     notes: Optional[str] = Form(None),
+    is_snack: bool = Form(False),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
@@ -400,7 +403,7 @@ def update_feeding(
     config = get_or_create_config(session)
     try:
         feeding = feeding_service.update_feeding(
-            session, config, feeding, timestamp, po_amount, ng_amount, notes
+            session, config, feeding, timestamp, po_amount, ng_amount, notes, is_snack
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
