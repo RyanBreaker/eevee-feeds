@@ -1,0 +1,31 @@
+<div class="feeding-card editing" id="feeding-card-{{ feeding.id }}">
+  <form hx-put="/feedings/{{ feeding.id }}" hx-target="closest .feeding-card" hx-swap="outerHTML" hx-on::after-request="document.body.dispatchEvent(new Event('feeding-updated'))" class="feeding-form">
+    <div class="feeding-card-edit-fields">
+      <input type="hidden" name="feeding_id" value="{{ feeding.id }}">
+      <label>
+        Time
+        <input type="datetime-local" name="timestamp" value="{{ feeding.timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
+      </label>
+      <label>
+        Total
+        <input type="number" name="per_feed_total" value="{{ feeding.po_amount + feeding.ng_amount }}" min="0" step="1">
+      </label>
+      <label>
+        NG
+        <input type="number" name="ng_amount" value="{{ feeding.ng_amount }}" min="0" step="1" required>
+      </label>
+      <label>
+        PO
+        <input type="number" name="po_amount" value="{{ feeding.po_amount }}" min="0" step="1" required>
+      </label>
+      <label>
+        Notes
+        <input type="text" name="notes" value="{{ feeding.notes or '' }}" placeholder="Notes">
+      </label>
+    </div>
+    <div class="feeding-card-actions">
+      <button type="submit">Save</button>
+      <button type="button" hx-get="/feedings/{{ feeding.id }}" hx-target="closest .feeding-card" hx-swap="outerHTML">Cancel</button>
+    </div>
+  </form>
+</div>

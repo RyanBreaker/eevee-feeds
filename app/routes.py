@@ -50,6 +50,11 @@ def _now_truncated() -> datetime:
     return datetime.now().replace(second=0, microsecond=0)
 
 
+def _hx_target_is_card(request: Request) -> bool:
+    hx_target = request.headers.get("HX-Target", "")
+    return hx_target.startswith("feeding-card-")
+
+
 def _require_timestamp_not_future(timestamp: datetime) -> None:
     if timestamp > datetime.now():
         raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
@@ -344,13 +349,19 @@ def feeding_row(
     config = get_or_create_config(session)
     gap = get_feeding_gap(session, feeding)
     effective_target = effective_target_for_feeding(session, config, feeding)
+    template = (
+        "partials/feeding_card.html"
+        if _hx_target_is_card(request)
+        else "partials/feeding_row.html"
+    )
     return templates.TemplateResponse(
-        "partials/feeding_row.html",
+        template,
         {
             "request": request,
             "feeding": feeding,
             "gap": gap,
             "effective_target": effective_target,
+            "now": datetime.now(),
         },
     )
 
@@ -363,8 +374,13 @@ def edit_feeding_form(
     _: Optional[str] = Depends(require_auth),
 ):
     feeding = get_feeding_or_404(session, feeding_id)
+    template = (
+        "partials/feeding_edit_card.html"
+        if _hx_target_is_card(request)
+        else "partials/feeding_edit_row.html"
+    )
     return templates.TemplateResponse(
-        "partials/feeding_edit_row.html",
+        template,
         {"request": request, "feeding": feeding},
     )
 
@@ -391,13 +407,19 @@ def update_feeding(
 
     gap = get_feeding_gap(session, feeding)
     effective_target = effective_target_for_feeding(session, config, feeding)
+    template = (
+        "partials/feeding_card.html"
+        if _hx_target_is_card(request)
+        else "partials/feeding_row.html"
+    )
     response = templates.TemplateResponse(
-        "partials/feeding_row.html",
+        template,
         {
             "request": request,
             "feeding": feeding,
             "gap": gap,
             "effective_target": effective_target,
+            "now": datetime.now(),
         },
     )
     response.headers["HX-Trigger"] = "feeding-updated"

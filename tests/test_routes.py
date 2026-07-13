@@ -948,3 +948,123 @@ def test_update_feeding_rejects_future_timestamp(client, test_engine):
         },
     )
     assert r.status_code == 400
+
+
+def test_edit_feeding_form_returns_card_for_mobile_target(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0),
+            po_amount=30,
+            ng_amount=10,
+            notes="initial",
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.get(
+        f"/feedings/{feeding_id}/edit",
+        headers={"HX-Target": f"feeding-card-{feeding_id}"},
+    )
+    assert r.status_code == 200
+    assert f'<div class="feeding-card editing" id="feeding-card-{feeding_id}">' in r.text
+    assert "feeding-card-edit-fields" in r.text
+    assert "2026-07-09T12:00" in r.text
+
+
+def test_edit_feeding_form_returns_table_row_for_table_target(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0),
+            po_amount=30,
+            ng_amount=10,
+            notes="initial",
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.get(
+        f"/feedings/{feeding_id}/edit",
+        headers={"HX-Target": f"feeding-{feeding_id}"},
+    )
+    assert r.status_code == 200
+    assert f'<tr id="feeding-{feeding_id}" class="editing">' in r.text
+    assert "inline-form" in r.text
+
+
+def test_feeding_row_returns_card_for_mobile_target(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0),
+            po_amount=30,
+            ng_amount=10,
+            target_per_feed=70,
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.get(
+        f"/feedings/{feeding_id}",
+        headers={"HX-Target": f"feeding-card-{feeding_id}"},
+    )
+    assert r.status_code == 200
+    assert f'<div class="feeding-card" id="feeding-card-{feeding_id}">' in r.text
+    assert "PO 30ml" in r.text
+    assert "NG 10ml" in r.text
+    assert "Total 40ml" in r.text
+
+
+def test_update_feeding_renders_card_for_mobile_target(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime.now() - timedelta(hours=3),
+            po_amount=30,
+            ng_amount=10,
+            notes="initial",
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.put(
+        f"/feedings/{feeding_id}",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "45",
+            "ng_amount": "25",
+            "notes": "after edit",
+        },
+        headers={"HX-Target": f"feeding-card-{feeding_id}"},
+    )
+    assert r.status_code == 200
+    assert f'<div class="feeding-card" id="feeding-card-{feeding_id}">' in r.text
+    assert "PO 45ml" in r.text
+    assert "NG 25ml" in r.text
+    assert "Total 70ml" in r.text
+    assert "after edit" in r.text
+    assert r.headers.get("HX-Trigger") == "feeding-updated"
+
+
+def test_mobile_feeding_card_edit_button_targets_card_id(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=datetime.now() - timedelta(hours=3),
+            po_amount=30,
+            ng_amount=10,
+        )
+        session.add(feeding)
+        session.commit()
+        feeding_id = feeding.id
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert f'id="feeding-card-{feeding_id}"' in r.text
+    assert f'hx-target="#feeding-card-{feeding_id}"' in r.text
+    assert f'hx-get="/feedings/{feeding_id}/edit"' in r.text

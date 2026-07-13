@@ -511,6 +511,28 @@ button.danger {
   flex: 1 1 auto;
 }
 
+.feeding-card.editing {
+  background: var(--card);
+  border-color: var(--primary);
+}
+
+.feeding-card-edit-fields {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.feeding-card-edit-fields label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.feeding-card.editing .feeding-card-actions {
+  margin-top: 0;
+}
+
 canvas {
   max-height: 300px;
 }
