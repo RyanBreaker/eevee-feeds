@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
-from app.models import Feeding, FeedingStart, TargetConfig
+from app.models import Feeding, FeedingStart, FeedingStartReminderLog, TargetConfig
 from app.period import get_period_start
 
 
@@ -134,6 +134,8 @@ def create_feeding_start(session: Session, timestamp: datetime) -> FeedingStart:
 
 
 def delete_feeding_start(session: Session, feeding_start: FeedingStart) -> None:
+    assert feeding_start.id is not None
+    delete_feeding_start_reminder_logs(session, feeding_start.id)
     session.delete(feeding_start)
     session.commit()
 
@@ -141,9 +143,47 @@ def delete_feeding_start(session: Session, feeding_start: FeedingStart) -> None:
 def update_feeding_start_timestamp(
     session: Session, feeding_start: FeedingStart, timestamp: datetime
 ) -> FeedingStart:
+    assert feeding_start.id is not None
+    delete_feeding_start_reminder_logs(session, feeding_start.id)
     feeding_start.timestamp = timestamp
     feeding_start.updated_at = datetime.utcnow()
     session.add(feeding_start)
     session.commit()
     session.refresh(feeding_start)
     return feeding_start
+
+
+def get_feeding_start_reminder_thresholds(
+    session: Session, feeding_start_id: int
+) -> set[int]:
+    return set(
+        session.exec(
+            select(FeedingStartReminderLog.threshold_minutes).where(
+                FeedingStartReminderLog.feeding_start_id == feeding_start_id
+            )
+        ).all()
+    )
+
+
+def record_feeding_start_reminder_sent(
+    session: Session, feeding_start_id: int, threshold_minutes: int
+) -> None:
+    log = FeedingStartReminderLog(
+        feeding_start_id=feeding_start_id,
+        threshold_minutes=threshold_minutes,
+    )
+    session.add(log)
+    session.commit()
+
+
+def delete_feeding_start_reminder_logs(
+    session: Session, feeding_start_id: int
+) -> None:
+    logs = session.exec(
+        select(FeedingStartReminderLog).where(
+            FeedingStartReminderLog.feeding_start_id == feeding_start_id
+        )
+    ).all()
+    for log in logs:
+        session.delete(log)
+    session.commit()

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.feeding_service import (
     complete_feeding,
@@ -9,7 +9,7 @@ from app.feeding_service import (
     delete_feeding,
     update_feeding,
 )
-from app.models import Feeding, FeedingStart
+from app.models import Feeding, FeedingStart, FeedingStartReminderLog
 from app.repository import get_feeding_by_id, get_feeding_start
 from app.repository import get_or_create_config
 
@@ -204,3 +204,29 @@ def test_delete_feeding_removes_feeding(session):
     delete_feeding(session, feeding)
 
     assert get_feeding_by_id(session, feeding_id) is None
+
+
+def test_complete_feeding_clears_start_reminder_logs(session):
+    config = get_or_create_config(session)
+    feeding_start = FeedingStart(timestamp=datetime(2026, 7, 10, 8, 0))
+    session.add(feeding_start)
+    session.commit()
+    feeding_start_id = feeding_start.id
+    session.add(
+        FeedingStartReminderLog(
+            feeding_start_id=feeding_start_id, threshold_minutes=15
+        )
+    )
+    session.commit()
+
+    complete_feeding(
+        session,
+        config,
+        feeding_start,
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        po_amount=40,
+        ng_amount=10,
+        notes=None,
+    )
+
+    assert session.exec(select(FeedingStartReminderLog)).first() is None

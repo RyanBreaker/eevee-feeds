@@ -34,6 +34,10 @@ _Avoid_: required feed amount
 The recorded beginning of a feed that has not yet completed, consisting of a single timestamp. A FeedingStart is completed by providing PO and NG amounts, at which point it becomes a Feeding and the FeedingStart is removed.
 _Avoid_: in-progress feeding, pending feed, draft feeding
 
+**FeedingStart reminder**:
+A notification sent while a FeedingStart exists, fired every 15 minutes after the FeedingStart timestamp. FeedingStart reminders are independent of the normal post-feeding reminders and are cancelled when the feed completes or is discarded.
+_Avoid_: in-progress notification, start alert
+
 **PO percentage**:
 The percentage of a Feeding's or Period's total volume that was delivered orally, calculated as `po_amount / (po_amount + ng_amount) * 100` and rounded to one decimal place. When the total volume is zero, the value is undefined and displayed as `—`.
 _Avoid_: PO ratio, oral fraction

@@ -43,6 +43,15 @@ class NotificationLog(SQLModel, table=True):
     sent_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class FeedingStartReminderLog(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("feeding_start_id", "threshold_minutes"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    feeding_start_id: int = Field(index=True)
+    threshold_minutes: int = Field(index=True)
+    sent_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class BackupLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     period_start: datetime = Field(index=True)

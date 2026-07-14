@@ -20,6 +20,17 @@
   <ul class="settings-list">
     <li><strong>Topic:</strong> {{ notification.topic }}</li>
     <li><strong>Server:</strong> {{ notification.server }}</li>
+    {% if feeding_start %}
+    <li><strong>In-progress reminders:</strong> every {{ notification.start_reminder_interval_minutes }} minutes</li>
+    <li>
+      <strong>Next in-progress reminder:</strong>
+      {% if notification.next_notification %}
+        {{ notification.next_notification.strftime('%I:%M %p') }}
+      {% else %}
+        None scheduled
+      {% endif %}
+    </li>
+    {% else %}
     <li><strong>Thresholds:</strong> {{ notification.thresholds | join(', ') }} hours</li>
     <li>
       <strong>Next notification:</strong>
@@ -29,6 +40,7 @@
         None scheduled
       {% endif %}
     </li>
+    {% endif %}
   </ul>
   <form method="post" action="/settings/test-notify" class="settings-form">
     <button type="submit">Send test notification</button>

@@ -6,7 +6,7 @@ import httpx
 from sqlmodel import Session, select
 
 from app.backup_service import backup_service
-from app.models import Feeding, FeedingStart, NotificationLog
+from app.models import Feeding, FeedingStart, FeedingStartReminderLog, NotificationLog
 from app.notification_service import notification_service
 from app.period import format_time
 from app.repository import get_or_create_config
@@ -1019,6 +1019,75 @@ def test_update_feeding_rejects_future_timestamp(client, test_engine):
         },
     )
     assert r.status_code == 400
+
+
+def test_complete_feeding_clears_start_reminder_logs(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    with Session(test_engine) as session:
+        feeding_start = session.exec(select(FeedingStart)).first()
+        session.add(
+            FeedingStartReminderLog(
+                feeding_start_id=feeding_start.id, threshold_minutes=15
+            )
+        )
+        session.commit()
+
+    r = client.post(
+        "/feedings/complete",
+        data={
+            "timestamp": "2026-07-09T12:00",
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        assert session.exec(select(FeedingStartReminderLog)).first() is None
+
+
+def test_cancel_feeding_start_clears_start_reminder_logs(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    with Session(test_engine) as session:
+        feeding_start = session.exec(select(FeedingStart)).first()
+        session.add(
+            FeedingStartReminderLog(
+                feeding_start_id=feeding_start.id, threshold_minutes=15
+            )
+        )
+        session.commit()
+
+    r = client.delete("/feedings/start")
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        assert session.exec(select(FeedingStartReminderLog)).first() is None
+
+
+def test_update_feeding_start_timestamp_clears_start_reminder_logs(
+    client, test_engine
+):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
+
+    with Session(test_engine) as session:
+        feeding_start = session.exec(select(FeedingStart)).first()
+        session.add(
+            FeedingStartReminderLog(
+                feeding_start_id=feeding_start.id, threshold_minutes=15
+            )
+        )
+        session.commit()
+
+    r = client.put("/feedings/start", data={"timestamp": "2026-07-09T11:30"})
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        assert session.exec(select(FeedingStartReminderLog)).first() is None
 
 
 def test_edit_feeding_form_returns_card_for_mobile_target(client, test_engine):

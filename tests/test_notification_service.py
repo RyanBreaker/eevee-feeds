@@ -5,7 +5,7 @@ import httpx
 import pytest
 from sqlmodel import Session, select
 
-from app.models import Feeding, NotificationLog
+from app.models import Feeding, FeedingStart, NotificationLog
 from app.notification_service import DEFAULT_THRESHOLDS, NotificationService
 
 
@@ -343,3 +343,200 @@ async def test_run_check_ignores_snacks(test_engine):
             select(NotificationLog).where(NotificationLog.feeding_id == real_feeding_id)
         ).all()
         assert len(logs) == 3
+
+
+@pytest.mark.asyncio
+async def test_run_check_sends_start_reminders(test_engine):
+    captured = []
+
+    def handler(request: httpx.Request):
+        captured.append({"content": request.content})
+        return httpx.Response(200, text="ok")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    start_time = now - timedelta(minutes=50)
+    with Session(test_engine) as session:
+        feeding_start = FeedingStart(timestamp=start_time)
+        session.add(feeding_start)
+        session.commit()
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with Session(test_engine) as session:
+        await service.run_check(session, client, now=now)
+
+    assert len(captured) == 3
+    titles = [json.loads(item["content"])["title"] for item in captured]
+    assert titles == [
+        "🍼 15m since feed started",
+        "🍼 30m since feed started",
+        "🍼 45m since feed started",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_run_check_start_reminders_are_unbounded(test_engine):
+    captured = []
+
+    def handler(request: httpx.Request):
+        captured.append({"content": request.content})
+        return httpx.Response(200, text="ok")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    start_time = now - timedelta(minutes=80)
+    with Session(test_engine) as session:
+        feeding_start = FeedingStart(timestamp=start_time)
+        session.add(feeding_start)
+        session.commit()
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with Session(test_engine) as session:
+        await service.run_check(session, client, now=now)
+
+    assert len(captured) == 5
+    titles = [json.loads(item["content"])["title"] for item in captured]
+    assert titles[-1] == "🍼 1h 15m since feed started"
+
+
+@pytest.mark.asyncio
+async def test_run_check_suppresses_normal_notifications_when_feeding_start_exists(
+    test_engine,
+):
+    captured = []
+
+    def handler(request: httpx.Request):
+        captured.append({"content": request.content})
+        return httpx.Response(200, text="ok")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    with Session(test_engine) as session:
+        feeding = Feeding(
+            timestamp=now - timedelta(hours=5),
+            po_amount=30,
+            ng_amount=10,
+        )
+        feeding_start = FeedingStart(timestamp=now - timedelta(minutes=20))
+        session.add_all([feeding, feeding_start])
+        session.commit()
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with Session(test_engine) as session:
+        await service.run_check(session, client, now=now)
+
+    assert len(captured) == 1
+    data = json.loads(captured[0]["content"])
+    assert data["title"] == "🍼 15m since feed started"
+
+
+@pytest.mark.asyncio
+async def test_run_check_skips_start_reminders_before_app_start_time(test_engine):
+    captured = []
+
+    def handler(request: httpx.Request):
+        captured.append({"content": request.content})
+        return httpx.Response(200, text="ok")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    app_start_time = now - timedelta(minutes=20)
+    start_time = now - timedelta(minutes=50)
+    with Session(test_engine) as session:
+        feeding_start = FeedingStart(timestamp=start_time)
+        session.add(feeding_start)
+        session.commit()
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with Session(test_engine) as session:
+        await service.run_check(
+            session, client, now=now, app_start_time=app_start_time
+        )
+
+    assert len(captured) == 2
+    titles = [json.loads(item["content"])["title"] for item in captured]
+    assert titles == [
+        "🍼 30m since feed started",
+        "🍼 45m since feed started",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_run_check_start_reminders_skip_already_sent(test_engine):
+    captured = []
+
+    def handler(request: httpx.Request):
+        captured.append({"content": request.content})
+        return httpx.Response(200, text="ok")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    start_time = now - timedelta(minutes=50)
+    with Session(test_engine) as session:
+        feeding_start = FeedingStart(timestamp=start_time)
+        session.add(feeding_start)
+        session.commit()
+        feeding_start_id = feeding_start.id
+        from app.models import FeedingStartReminderLog
+
+        session.add(
+            FeedingStartReminderLog(
+                feeding_start_id=feeding_start_id, threshold_minutes=15
+            )
+        )
+        session.commit()
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with Session(test_engine) as session:
+        await service.run_check(session, client, now=now)
+
+    assert len(captured) == 2
+    titles = [json.loads(item["content"])["title"] for item in captured]
+    assert titles == [
+        "🍼 30m since feed started",
+        "🍼 45m since feed started",
+    ]
+
+
+def test_get_status_with_feeding_start(test_engine):
+    now = datetime(2026, 7, 10, 12, 0)
+    start_time = now - timedelta(minutes=10)
+    with Session(test_engine) as session:
+        feeding_start = FeedingStart(timestamp=start_time)
+        session.add(feeding_start)
+        session.commit()
+
+    service = make_service()
+    with Session(test_engine) as session:
+        status = service.get_status(session)
+
+    assert status["next_notification"] == start_time + timedelta(minutes=15)
+
+
+def test_get_status_with_feeding_start_skips_sent_threshold(test_engine):
+    now = datetime(2026, 7, 10, 12, 0)
+    start_time = now - timedelta(minutes=20)
+    with Session(test_engine) as session:
+        feeding_start = FeedingStart(timestamp=start_time)
+        session.add(feeding_start)
+        session.commit()
+        feeding_start_id = feeding_start.id
+        from app.models import FeedingStartReminderLog
+
+        session.add(
+            FeedingStartReminderLog(
+                feeding_start_id=feeding_start_id, threshold_minutes=15
+            )
+        )
+        session.commit()
+
+    service = make_service()
+    with Session(test_engine) as session:
+        status = service.get_status(session)
+
+    assert status["next_notification"] == start_time + timedelta(minutes=30)

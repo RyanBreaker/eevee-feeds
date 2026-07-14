@@ -6,14 +6,20 @@ from typing import List, Optional
 import httpx
 from sqlmodel import Session, select
 
-from app.models import Feeding, NotificationLog
+from app.models import Feeding, FeedingStart, NotificationLog
 from app.period import format_duration
-from app.repository import get_last_feeding
+from app.repository import (
+    get_feeding_start,
+    get_feeding_start_reminder_thresholds,
+    get_last_feeding,
+    record_feeding_start_reminder_sent,
+)
 
 logger = logging.getLogger("uvicorn")
 
 DEFAULT_THRESHOLDS = [2, 3, 4]
 DEFAULT_SERVER = "https://ntfy.sh"
+DEFAULT_START_REMINDER_INTERVAL_MINUTES = 15
 
 
 class NotificationService:
@@ -28,6 +34,7 @@ class NotificationService:
         self.server = (server or os.getenv("NTFY_SERVER") or DEFAULT_SERVER).rstrip("/")
         self.app_url = app_url or os.getenv("APP_URL")
         self.thresholds = self.parse_thresholds(thresholds or os.getenv("NTFY_THRESHOLDS"))
+        self.start_reminder_interval_minutes = DEFAULT_START_REMINDER_INTERVAL_MINUTES
 
     @staticmethod
     def parse_thresholds(raw: Optional[str]) -> List[int]:
@@ -95,6 +102,28 @@ class NotificationService:
             logger.error("Failed to send ntfy notification: %s", exc)
             return False
 
+    async def _send_start_reminder_for(
+        self,
+        client: httpx.AsyncClient,
+        feeding_start: FeedingStart,
+        since: timedelta,
+    ) -> bool:
+        if not client or not self.topic:
+            return False
+
+        title = f"🍼 {format_duration(since)} since feed started"
+        payload = self.build_payload(title, "", 3)
+        url = f"{self.server}/"
+
+        try:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            logger.info("Sent ntfy start reminder: %s", title)
+            return True
+        except Exception as exc:
+            logger.error("Failed to send ntfy start reminder: %s", exc)
+            return False
+
     def _is_sent(self, session: Session, feeding_id: int, threshold: int) -> bool:
         log = session.exec(
             select(NotificationLog).where(
@@ -114,10 +143,27 @@ class NotificationService:
         session.commit()
 
     def get_status(self, session: Session) -> dict:
+        feeding_start = get_feeding_start(session)
         last_feeding = get_last_feeding(session, skip_snacks=True)
 
         next_notification = None
-        if self.topic and last_feeding:
+        if self.topic and feeding_start:
+            assert feeding_start.id is not None
+            sent_thresholds = get_feeding_start_reminder_thresholds(
+                session, feeding_start.id
+            )
+            now = datetime.now()
+            elapsed_minutes = int(
+                (now - feeding_start.timestamp).total_seconds() // 60
+            )
+            interval = self.start_reminder_interval_minutes
+            threshold = interval
+            while threshold <= elapsed_minutes + interval:
+                if threshold not in sent_thresholds:
+                    break
+                threshold += interval
+            next_notification = feeding_start.timestamp + timedelta(minutes=threshold)
+        elif self.topic and last_feeding:
             sent_thresholds = {
                 row
                 for row in session.exec(
@@ -141,6 +187,7 @@ class NotificationService:
             "server": self.server,
             "thresholds": self.thresholds,
             "next_notification": next_notification,
+            "start_reminder_interval_minutes": self.start_reminder_interval_minutes,
         }
 
     async def send_test(
@@ -158,6 +205,46 @@ class NotificationService:
                 return await self._send_notification_for(client, last_feeding, gap, crossed)
         return await self._send_notification_for(client, last_feeding, gap, crossed)
 
+    async def run_check_start_reminders(
+        self,
+        session: Session,
+        client: httpx.AsyncClient,
+        now: Optional[datetime] = None,
+        app_start_time: Optional[datetime] = None,
+    ) -> None:
+        if now is None:
+            now = datetime.now()
+
+        feeding_start = get_feeding_start(session)
+        if not feeding_start:
+            return
+        assert feeding_start.id is not None
+
+        elapsed = now - feeding_start.timestamp
+        elapsed_minutes = int(elapsed.total_seconds() // 60)
+        interval = self.start_reminder_interval_minutes
+        sent_thresholds = get_feeding_start_reminder_thresholds(
+            session, feeding_start.id
+        )
+
+        for threshold_minutes in range(interval, elapsed_minutes + 1, interval):
+            threshold_time = feeding_start.timestamp + timedelta(
+                minutes=threshold_minutes
+            )
+            if app_start_time and threshold_time < app_start_time:
+                continue
+            if threshold_minutes in sent_thresholds:
+                continue
+            ok = await self._send_start_reminder_for(
+                client,
+                feeding_start,
+                timedelta(minutes=threshold_minutes),
+            )
+            if ok:
+                record_feeding_start_reminder_sent(
+                    session, feeding_start.id, threshold_minutes
+                )
+
     async def run_check(
         self,
         session: Session,
@@ -167,6 +254,13 @@ class NotificationService:
     ) -> None:
         if now is None:
             now = datetime.now()
+
+        feeding_start = get_feeding_start(session)
+        if feeding_start:
+            await self.run_check_start_reminders(
+                session, client, now, app_start_time
+            )
+            return
 
         last_feeding = get_last_feeding(session, skip_snacks=True)
         if not last_feeding:

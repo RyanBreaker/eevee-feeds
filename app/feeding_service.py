@@ -4,6 +4,7 @@ from typing import Optional
 from sqlmodel import Session
 
 from app.models import Feeding, FeedingStart, TargetConfig
+from app.repository import delete_feeding_start
 from app.target_amount import compute_feed_target
 
 
@@ -92,8 +93,7 @@ def complete_feeding(
         notes=notes,
     )
     session.add(feeding)
-    session.delete(feeding_start)
-    session.commit()
+    delete_feeding_start(session, feeding_start)
     session.refresh(feeding)
     return feeding
 

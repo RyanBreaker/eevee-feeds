@@ -45,6 +45,7 @@ def reset_notifier(monkeypatch):
     monkeypatch.setattr(service, "server", "https://ntfy.sh")
     monkeypatch.setattr(service, "app_url", None)
     monkeypatch.setattr(service, "thresholds", [2, 3, 4])
+    monkeypatch.setattr(service, "start_reminder_interval_minutes", 15)
     monkeypatch.setattr(app.notifier.notifier, "client", None)
     monkeypatch.setattr(app.notifier.notifier, "task", None)
     monkeypatch.setattr(app.notifier.notifier, "app_start_time", None)
