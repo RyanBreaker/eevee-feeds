@@ -257,6 +257,16 @@ input[readonly] {
   color: var(--muted);
 }
 
+.timestamp-now-button {
+  align-self: flex-start;
+  width: auto;
+  margin-top: 0.25rem;
+}
+
+.feeding-start-form .form-row {
+  align-items: flex-end;
+}
+
 input.invalid {
   border-color: var(--danger);
   outline: 1px solid var(--danger);
