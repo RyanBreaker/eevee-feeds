@@ -7,6 +7,34 @@ function formatDurationMinutes(totalMinutes) {
   return minutes + 'm';
 }
 
+function formatDateTimeLocal(date) {
+  const pad = function (n) {
+    return String(n).padStart(2, '0');
+  };
+  return (
+    date.getFullYear() +
+    '-' +
+    pad(date.getMonth() + 1) +
+    '-' +
+    pad(date.getDate()) +
+    'T' +
+    pad(date.getHours()) +
+    ':' +
+    pad(date.getMinutes())
+  );
+}
+
+function initFeedingStartForm(form) {
+  const timestampInput = form.querySelector('input[name="timestamp"]');
+  const nowButton = form.querySelector('.timestamp-now-button');
+  if (!timestampInput || !nowButton) return;
+
+  nowButton.addEventListener('click', function () {
+    timestampInput.value = formatDateTimeLocal(new Date());
+    timestampInput.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
 function initFeedingForm(form) {
   const timestampInput = form.querySelector('input[name="timestamp"]');
   const totalInput = form.querySelector('input[name="per_feed_total"]');
@@ -85,6 +113,7 @@ function initFeedingForm(form) {
 function initAllFeedingForms(root) {
   root = root || document;
   root.querySelectorAll('form.feeding-form').forEach(initFeedingForm);
+  root.querySelectorAll('form.feeding-start-form').forEach(initFeedingStartForm);
 }
 
 document.addEventListener('DOMContentLoaded', function () {

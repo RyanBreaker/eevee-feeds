@@ -918,6 +918,17 @@ def test_start_feed_form_includes_target_preview_wiring(client):
     assert 'id="start-feed-target-preview"' in r.text
 
 
+def test_start_feed_form_includes_now_button(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'id="start-feed-form"' in r.text
+    assert 'class="timestamp-now-button"' in r.text
+    assert 'type="button"' in r.text
+    assert 'aria-label="Set timestamp to now"' in r.text
+    assert ">Now<" in r.text
+
+
 def test_index_shows_complete_form_when_feeding_start_exists(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     client.post("/feedings/start", data={"timestamp": "2026-07-09T12:00"})
