@@ -12,6 +12,7 @@ from app.period import (
     linear_trend,
 )
 from app.repository import (
+    get_feeding_number,
     get_feedings_for_period,
     get_feedings_with_gaps,
     get_last_feeding,
@@ -33,6 +34,23 @@ def attach_effective_targets(
             effective_target_for_feeding(session, config, feeding),
         )
     return feedings_with_gaps
+
+
+def attach_feeding_numbers(
+    feedings_with_gaps: list[tuple[Feeding, Optional[timedelta]]],
+) -> list[tuple[Feeding, Optional[timedelta]]]:
+    """Set ``feeding.number`` to the 1-based position within the Period."""
+    for number, (feeding, _) in enumerate(feedings_with_gaps, start=1):
+        # Bypass Pydantic so we can attach a transient computed value.
+        object.__setattr__(feeding, "number", number)
+    return feedings_with_gaps
+
+
+def attach_feeding_number(session: Session, feeding: Feeding) -> Feeding:
+    """Set ``feeding.number`` to the 1-based position within its Period."""
+    # Bypass Pydantic so we can attach a transient computed value.
+    object.__setattr__(feeding, "number", get_feeding_number(session, feeding))
+    return feeding
 
 
 def _get_average_total_at_time(
@@ -62,8 +80,10 @@ def get_current_period_start() -> datetime:
 
 
 def get_period_summary(session: Session, config: TargetConfig, period_start: datetime) -> dict:
-    feedings_with_gaps = attach_effective_targets(
-        session, config, get_feedings_with_gaps(session, period_start)
+    feedings_with_gaps = attach_feeding_numbers(
+        attach_effective_targets(
+            session, config, get_feedings_with_gaps(session, period_start)
+        )
     )
     feedings = [f for f, _ in feedings_with_gaps]
     po = sum(f.po_amount for f in feedings)
@@ -171,12 +191,23 @@ def get_chart_data(session: Session, config: TargetConfig, end_period: datetime)
         summary = get_period_summary(session, config, start)
         has_feedings = summary["total"] > 0
         has_data.append(has_feedings)
+        period_feedings = [f for f, _ in summary["feedings"]]
         periods.append(
             {
                 "label": get_period_label(start),
                 "total": summary["total"] if has_feedings else None,
                 "target": summary["target"],
                 "po_pct": summary["po_pct"] if has_feedings else None,
+                "regular_count": (
+                    sum(1 for f in period_feedings if not f.is_snack)
+                    if has_feedings
+                    else None
+                ),
+                "snack_count": (
+                    sum(1 for f in period_feedings if f.is_snack)
+                    if has_feedings
+                    else None
+                ),
             }
         )
 

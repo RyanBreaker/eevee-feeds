@@ -30,7 +30,12 @@ from app.repository import (
     get_or_create_config,
     update_feeding_start_timestamp,
 )
-from app.summary import get_chart_data, get_current_period_start, get_period_summary
+from app.summary import (
+    attach_feeding_number,
+    get_chart_data,
+    get_current_period_start,
+    get_period_summary,
+)
 from app.target_amount import compute_feed_target, effective_target_for_feeding
 
 router = APIRouter()
@@ -351,6 +356,7 @@ def feeding_row(
     config = get_or_create_config(session)
     gap = get_feeding_gap(session, feeding)
     effective_target = effective_target_for_feeding(session, config, feeding)
+    attach_feeding_number(session, feeding)
     template = (
         "partials/feeding_card.html"
         if _hx_target_is_card(request)
@@ -410,6 +416,7 @@ def update_feeding(
 
     gap = get_feeding_gap(session, feeding)
     effective_target = effective_target_for_feeding(session, config, feeding)
+    attach_feeding_number(session, feeding)
     template = (
         "partials/feeding_card.html"
         if _hx_target_is_card(request)

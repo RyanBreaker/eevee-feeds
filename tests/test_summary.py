@@ -412,6 +412,49 @@ def test_get_chart_data_excludes_empty_periods(session):
     assert empty_day["target"] is not None
 
 
+def test_get_chart_data_includes_regular_and_snack_counts(session):
+    config = get_or_create_config(session)
+    session.add(
+        Feeding(timestamp=datetime(2026, 7, 5, 8, 0), po_amount=30, ng_amount=10)
+    )
+    session.add(
+        Feeding(
+            timestamp=datetime(2026, 7, 5, 10, 0),
+            po_amount=20,
+            ng_amount=0,
+            is_snack=True,
+        )
+    )
+    session.add(
+        Feeding(timestamp=datetime(2026, 7, 5, 12, 0), po_amount=40, ng_amount=10)
+    )
+    session.commit()
+
+    chart_data = get_chart_data(session, config, datetime(2026, 7, 5, 6, 0))
+
+    data_day = next(d for d in chart_data if d["label"] == "Jul 5")
+    empty_day = next(d for d in chart_data if d["label"] == "Jul 4")
+
+    assert data_day["regular_count"] == 2
+    assert data_day["snack_count"] == 1
+    assert empty_day["regular_count"] is None
+    assert empty_day["snack_count"] is None
+
+
+def test_get_chart_data_counts_zero_snacks_as_zero_not_null(session):
+    config = get_or_create_config(session)
+    session.add(
+        Feeding(timestamp=datetime(2026, 7, 5, 8, 0), po_amount=30, ng_amount=10)
+    )
+    session.commit()
+
+    chart_data = get_chart_data(session, config, datetime(2026, 7, 5, 6, 0))
+
+    data_day = next(d for d in chart_data if d["label"] == "Jul 5")
+    assert data_day["regular_count"] == 1
+    assert data_day["snack_count"] == 0
+
+
 def test_get_chart_data_future_end_period_clamps_to_yesterday(session):
     config = get_or_create_config(session)
     feeding = Feeding(

@@ -79,6 +79,20 @@
           pointRadius: 0,
           fill: false,
           yAxisID: 'y1',
+        },
+        {
+          label: 'Regular Feedings',
+          data: chartData.map(d => d.regular_count),
+          backgroundColor: 'rgba(100, 116, 139, 0.7)',
+          yAxisID: 'y2',
+          stack: 'counts',
+        },
+        {
+          label: 'Snacks',
+          data: chartData.map(d => d.snack_count),
+          backgroundColor: 'rgba(245, 158, 11, 0.7)',
+          yAxisID: 'y2',
+          stack: 'counts',
         }
       ]
     },
@@ -86,6 +100,9 @@
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       scales: {
+        x: {
+          stacked: true,
+        },
         y: {
           beginAtZero: true,
           title: { display: true, text: 'ml' }
@@ -95,6 +112,14 @@
           beginAtZero: true,
           max: 100,
           title: { display: true, text: '%' }
+        },
+        y2: {
+          position: 'right',
+          beginAtZero: true,
+          stacked: true,
+          grid: { drawOnChartArea: false },
+          ticks: { stepSize: 1, precision: 0 },
+          title: { display: true, text: 'count' }
         }
       }
     }

@@ -1,4 +1,5 @@
 <tr id="feeding-{{ feeding.id }}">
+  <td class="feeding-number">{{ feeding.number }}</td>
   <td>
     {{ feeding.timestamp.strftime("%I:%M %p") }}
     {% if feeding.is_snack %}<span class="badge badge-snack">Snack</span>{% endif %}

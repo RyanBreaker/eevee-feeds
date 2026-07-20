@@ -57,6 +57,16 @@ def get_feedings_for_period(session: Session, period_start: datetime) -> list[Fe
     return list(session.exec(statement).all())
 
 
+def get_feeding_number(session: Session, feeding: Feeding) -> int:
+    """Return the 1-based position of ``feeding`` within its Period, in time order."""
+    period_start = get_period_start(feeding.timestamp)
+    feedings = get_feedings_for_period(session, period_start)
+    for number, candidate in enumerate(feedings, start=1):
+        if candidate.id == feeding.id:
+            return number
+    raise ValueError(f"Feeding {feeding.id} not found in its period")
+
+
 def get_previous_feeding(
     session: Session,
     timestamp: datetime,

@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 
@@ -220,6 +221,48 @@ def test_update_feeding_to_snack(client, test_engine):
     assert feeding.target_per_feed is None
 
 
+def test_feeding_row_includes_period_number(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        first = Feeding(
+            timestamp=datetime(2026, 7, 9, 8, 0), po_amount=30, ng_amount=10
+        )
+        second = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0), po_amount=30, ng_amount=10
+        )
+        session.add(first)
+        session.add(second)
+        session.commit()
+        second_id = second.id
+
+    r = client.get(f"/feedings/{second_id}")
+    assert r.status_code == 200
+    assert '<td class="feeding-number">2</td>' in r.text
+
+
+def test_feeding_card_includes_period_number(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    with Session(test_engine) as session:
+        first = Feeding(
+            timestamp=datetime(2026, 7, 9, 8, 0), po_amount=30, ng_amount=10
+        )
+        second = Feeding(
+            timestamp=datetime(2026, 7, 9, 12, 0), po_amount=30, ng_amount=10
+        )
+        session.add(first)
+        session.add(second)
+        session.commit()
+        second_id = second.id
+
+    r = client.get(
+        f"/feedings/{second_id}", headers={"HX-Target": f"feeding-card-{second_id}"}
+    )
+    assert r.status_code == 200
+    assert '<span class="feeding-number">#2</span>' in r.text
+
+
 def test_feeding_row_shows_variance_when_over_target(client, test_engine):
     client.post("/login", data={"username": "admin", "password": "secret"})
 
@@ -372,6 +415,34 @@ def test_next_feeding_window_on_today_page(client):
     assert " ago" in response.text
     assert "feed-countdown-green" in response.text
     assert f"{format_time(window_start)}-{format_time(window_end)}" in response.text
+
+
+def test_index_numbers_feeding_rows_in_time_order_including_snacks(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    now = datetime.now().replace(second=0, microsecond=0)
+    for hours_ago, is_snack in [(3, False), (2, True), (1, False)]:
+        feeding_time = now - timedelta(hours=hours_ago)
+        client.post(
+            "/feedings",
+            data={
+                "timestamp": feeding_time.strftime("%Y-%m-%dT%H:%M"),
+                "po_amount": "30",
+                "ng_amount": "10",
+                **({"is_snack": "on"} if is_snack else {}),
+            },
+        )
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "<th>#</th>" in response.text
+    row_numbers = re.findall(
+        r'<td class="feeding-number">(\d+)</td>', response.text
+    )
+    assert row_numbers == ["1", "2", "3"]
+    card_numbers = re.findall(
+        r'<span class="feeding-number">#(\d+)</span>', response.text
+    )
+    assert card_numbers == ["1", "2", "3"]
 
 
 def test_index_includes_mobile_feeding_cards(client):

@@ -7,6 +7,10 @@ A simple web app for tracking a baby's oral (PO) and NG-tube feedings, with dail
 **Feeding**:
 A single recorded milk-intake event, with a timestamp, PO amount, NG amount, and optional notes.
 
+**Regular Feeding**:
+A Feeding that is not a Snack.
+_Avoid_: full feeding, scheduled feeding
+
 **Snack**:
 A Feeding that is recorded for completeness. Its volume is included in the Period total and target progress, but it has no suggested target volume and is not treated as the previous Feeding when computing the suggested target or gap for a later Feeding.
 _Avoid_: extra feed, top-off

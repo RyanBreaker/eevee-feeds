@@ -4,6 +4,7 @@
 <table id="feeding-list" class="feeding-table">
   <thead>
     <tr>
+      <th>#</th>
       <th>Time</th>
       <th>PO</th>
       <th>NG</th>
@@ -20,7 +21,7 @@
     {% include "partials/feeding_row.html" %}
     {% else %}
     <tr>
-      <td colspan="9" class="empty">No feedings recorded for this period.</td>
+      <td colspan="10" class="empty">No feedings recorded for this period.</td>
     </tr>
     {% endfor %}
   </tbody>

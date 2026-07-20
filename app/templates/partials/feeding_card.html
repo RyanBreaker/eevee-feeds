@@ -9,7 +9,7 @@
           {{ (now - feeding.timestamp) | format_duration }}
         </span>
       </div>
-      <div class="feeding-card-time-sub">{{ feeding.timestamp.strftime("%I:%M %p") }}</div>
+      <div class="feeding-card-time-sub"><span class="feeding-number">#{{ feeding.number }}</span> {{ feeding.timestamp.strftime("%I:%M %p") }}</div>
     </div>
     <div class="feeding-card-badges">
       {% if feeding.is_snack %}<span class="badge badge-snack">Snack</span>{% endif %}
