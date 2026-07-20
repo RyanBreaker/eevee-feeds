@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 from datetime import datetime, timedelta
 
 import httpx
@@ -112,3 +114,26 @@ async def test_notifier_start_no_topic(monkeypatch):
     notifier.start()
     assert notifier.task is None
     assert notifier.client is None
+
+
+@pytest.mark.asyncio
+async def test_loop_logs_and_survives_check_failure(monkeypatch, caplog):
+    checked = asyncio.Event()
+
+    async def failing_run_check(*args, **kwargs):
+        checked.set()
+        raise RuntimeError("db blew up")
+
+    monkeypatch.setattr(notifier.service, "run_check", failing_run_check)
+
+    with caplog.at_level(logging.ERROR, logger="uvicorn"):
+        task = asyncio.create_task(notifier._loop())
+        await asyncio.wait_for(checked.wait(), timeout=1)
+        await asyncio.sleep(0)
+        assert not task.done()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert "Notifier check failed" in caplog.text
+    assert "RuntimeError: db blew up" in caplog.text

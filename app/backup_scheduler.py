@@ -47,10 +47,12 @@ class BackupScheduler:
         logger.info("Backup scheduler stopped")
 
     async def _loop(self) -> None:
-        await self._check()
         while True:
+            try:
+                await self._check()
+            except Exception:
+                logger.exception("Backup check failed")
             await asyncio.sleep(self.interval)
-            await self._check()
 
     async def _check(self) -> None:
         if not self.service.enabled:

@@ -3,12 +3,10 @@
   "disable_existing_loggers": false,
   "formatters": {
     "default": {
-      "()": "app.logging_config.SingleLineFormatter",
-      "fmt": "%(levelname)s:     %(message)s"
+      "()": "app.logging_config.JSONFormatter"
     },
     "access": {
-      "()": "app.logging_config.SingleLineFormatter",
-      "fmt": "%(levelname)s:     %(message)s"
+      "()": "app.logging_config.JSONFormatter"
     }
   },
   "filters": {
@@ -41,7 +39,8 @@
   "loggers": {
     "uvicorn": {
       "handlers": ["stdout", "stderr"],
-      "level": "INFO"
+      "level": "INFO",
+      "propagate": false
     },
     "uvicorn.access": {
       "handlers": ["access"],
@@ -53,5 +52,9 @@
       "level": "INFO",
       "propagate": false
     }
+  },
+  "root": {
+    "handlers": ["stdout", "stderr"],
+    "level": "INFO"
   }
 }

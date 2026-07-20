@@ -1,18 +1,21 @@
+import json
 import logging
+import logging.config
+import sys
 from io import StringIO
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.logging_config import SingleLineFormatter
+from app.logging_config import JSONFormatter
 from app.main import app as fastapi_app
 from app.main import unhandled_exception_handler
 
 
-def test_single_line_formatter_escapes_newlines():
-    formatter = SingleLineFormatter(fmt="%(levelname)s: %(message)s")
-    logger = logging.getLogger("test_single_line_formatter")
+def _make_logger(name, formatter):
+    logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.handlers.clear()
     logger.propagate = False
@@ -21,6 +24,11 @@ def test_single_line_formatter_escapes_newlines():
     handler = logging.StreamHandler(stream)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+    return logger, stream
+
+
+def test_json_formatter_emits_single_line_json_with_exc_attribute():
+    logger, stream = _make_logger("test_json_formatter", JSONFormatter())
 
     try:
         raise ValueError("boom")
@@ -28,9 +36,72 @@ def test_single_line_formatter_escapes_newlines():
         logger.exception("Something failed")
 
     output = stream.getvalue().rstrip("\n")
-    assert "Something failed" in output
-    assert "ValueError: boom" in output
     assert "\n" not in output
+
+    entry = json.loads(output)
+    assert entry["level"] == "ERROR"
+    assert entry["logger"] == "test_json_formatter"
+    assert entry["message"] == "Something failed"
+    assert "Traceback (most recent call last)" in entry["exc"]
+    assert "ValueError: boom" in entry["exc"]
+    assert "time" in entry
+
+
+def test_json_formatter_handles_newlines_in_message():
+    logger, stream = _make_logger("test_json_message_newline", JSONFormatter())
+
+    logger.error("Exception in ASGI application\n")
+
+    output = stream.getvalue().rstrip("\n")
+    assert "\n" not in output
+
+    entry = json.loads(output)
+    assert entry["message"] == "Exception in ASGI application\n"
+    assert "exc" not in entry
+
+
+def test_stray_logger_exceptions_are_single_line_json(monkeypatch):
+    stdout = StringIO()
+    stderr = StringIO()
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    config_path = Path(__file__).parent.parent / "log_config.json"
+    config = json.loads(config_path.read_text())
+
+    names = ["uvicorn", "uvicorn.access", "uvicorn.error", "asyncio"]
+    saved = {
+        name: (
+            logging.getLogger(name).handlers[:],
+            logging.getLogger(name).level,
+            logging.getLogger(name).propagate,
+        )
+        for name in names
+    }
+    root_saved = (logging.root.handlers[:], logging.root.level)
+    try:
+        logging.config.dictConfig(config)
+        stray = logging.getLogger("asyncio")
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            stray.exception("Task exception was never retrieved")
+
+        output = stderr.getvalue().rstrip("\n")
+        assert "\n" not in output
+        assert stdout.getvalue() == ""
+
+        entry = json.loads(output)
+        assert entry["message"] == "Task exception was never retrieved"
+        assert "ValueError: boom" in entry["exc"]
+    finally:
+        for name, (handlers, level, propagate) in saved.items():
+            restored = logging.getLogger(name)
+            restored.handlers = handlers
+            restored.level = level
+            restored.propagate = propagate
+        logging.root.handlers = root_saved[0]
+        logging.root.level = root_saved[1]
 
 
 @pytest.mark.asyncio

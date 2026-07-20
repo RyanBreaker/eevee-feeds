@@ -51,10 +51,12 @@ class FeedingNotifier:
         logger.info("Notifier stopped")
 
     async def _loop(self) -> None:
-        await self._check()
         while True:
+            try:
+                await self._check()
+            except Exception:
+                logger.exception("Notifier check failed")
             await asyncio.sleep(60)
-            await self._check()
 
     async def _check(self) -> None:
         with self.session_factory() as session:

@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from datetime import datetime
 
 import pytest
@@ -103,3 +105,34 @@ async def test_scheduler_does_not_backfill_missed_periods(test_engine):
 
     assert len(service.calls) == 0
     assert missed_period < period_start
+
+
+@pytest.mark.asyncio
+async def test_loop_logs_and_survives_check_failure(test_engine, caplog):
+    class FailingBackupService:
+        enabled = True
+
+        def __init__(self):
+            self.called = asyncio.Event()
+
+        async def run_backup(self, session, now=None, run_timestamp=None):
+            self.called.set()
+            raise RuntimeError("b2 blew up")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    service = FailingBackupService()
+    scheduler = BackupScheduler(
+        session_factory, service, interval=60, now_fn=lambda: now
+    )
+
+    with caplog.at_level(logging.ERROR, logger="uvicorn"):
+        task = asyncio.create_task(scheduler._loop())
+        await asyncio.wait_for(service.called.wait(), timeout=1)
+        await asyncio.sleep(0)
+        assert not task.done()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert "Backup check failed" in caplog.text
+    assert "RuntimeError: b2 blew up" in caplog.text
