@@ -30,8 +30,11 @@ _Avoid_: backup run, backup attempt
 **TargetConfig**:
 The app's feeding configuration: the starting feeding-volume target, the weekly increment schedule, and the Period start time.
 
+**Sleep**:
+A recorded interval of baby sleep, with a start and end timestamp. Every recorded Sleep subtracts from the elapsed interval used by TargetFeedAmount — only the portion overlapping the interval counts, and an in-progress Sleep counts through the current moment. A Feeding recorded during a Sleep ends that Sleep.
+
 **TargetFeedAmount**:
-The recommended milk volume for a single Feeding, calculated by prorating the Period's target volume by the elapsed interval since the most recent Feeding.
+The recommended milk volume for a single Feeding, calculated by prorating the Period's target volume by the elapsed interval since the most recent Feeding. The interval is computed to the minute, clamped to [2, 4] hours, then reduced by any overlapping Sleep. The recommended amount is rounded down to the nearest 5 mL and is never displayed below 5 mL when an interval exists.
 _Avoid_: required feed amount
 
 **FeedingStart**:
