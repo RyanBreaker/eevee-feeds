@@ -16,7 +16,7 @@ A Feeding that is recorded for completeness. Its volume is included in the Perio
 _Avoid_: extra feed, top-off
 
 **Period**:
-A 24-hour aggregation window for feedings, starting at 6:00 AM local time.
+A 24-hour aggregation window for feedings, starting at a configurable time of day (default 6:00 AM local time). A Period belongs to the date on which it starts, and Period boundaries are always computed from the current configured start time — changing the start time re-buckets all historical feedings into new Periods.
 _Avoid_: day, date
 
 **Backup**:
@@ -28,7 +28,7 @@ A record that a Backup was attempted for a specific Period, capturing the run ti
 _Avoid_: backup run, backup attempt
 
 **TargetConfig**:
-The configuration that defines the starting feeding-volume target and the weekly increment schedule.
+The app's feeding configuration: the starting feeding-volume target, the weekly increment schedule, and the Period start time.
 
 **TargetFeedAmount**:
 The recommended milk volume for a single Feeding, calculated by prorating the Period's target volume by the elapsed interval since the most recent Feeding.

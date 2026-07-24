@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from urllib.parse import unquote
 
 import httpx
@@ -1028,6 +1028,97 @@ def test_settings_page_shows_in_progress_notice(client):
     r = client.get("/settings")
     assert r.status_code == 200
     assert "A feed is in progress" in r.text
+
+
+def test_settings_page_defaults_period_start_time_to_6am(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert 'name="period_start_time" value="06:00"' in r.text
+
+
+def test_update_settings_persists_period_start_time(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post(
+        "/settings",
+        data={
+            "start_date": "2026-07-03",
+            "start_volume": "520",
+            "increment": "40",
+            "increment_day": "Wednesday",
+            "period_start_time": "21:37",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+    assert config.period_start_time == time(21, 37)
+
+
+def test_settings_page_renders_saved_period_start_time(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+        config.period_start_time = time(21, 37)
+        session.add(config)
+        session.commit()
+
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert 'name="period_start_time" value="21:37"' in r.text
+
+
+def test_update_settings_rejects_invalid_period_start_time(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post(
+        "/settings",
+        data={
+            "start_date": "2026-07-03",
+            "start_volume": "520",
+            "increment": "40",
+            "increment_day": "Wednesday",
+            "period_start_time": "not-a-time",
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_index_rebuckets_feedings_after_period_start_change(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    # Noon on Jul 10: in the Jul 10 period under a 6AM start,
+    # but in the Jul 9 period under a 9PM start.
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": "2026-07-10T12:00",
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+
+    r = client.get("/?period=2026-07-09")
+    assert "12:00 PM" not in r.text
+    r = client.get("/?period=2026-07-10")
+    assert "12:00 PM" in r.text
+
+    client.post(
+        "/settings",
+        data={
+            "start_date": "2026-07-03",
+            "start_volume": "520",
+            "increment": "40",
+            "increment_day": "Wednesday",
+            "period_start_time": "21:00",
+        },
+    )
+
+    r = client.get("/?period=2026-07-09")
+    assert "12:00 PM" in r.text
+    r = client.get("/?period=2026-07-10")
+    assert "12:00 PM" not in r.text
 
 
 def test_start_feeding_accepts_future_timestamp(client):

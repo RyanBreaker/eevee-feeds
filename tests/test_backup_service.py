@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from urllib.parse import quote
 
 import httpx
@@ -108,7 +108,7 @@ async def test_run_backup_success(test_engine, monkeypatch, no_sleep):
 
     now = datetime(2026, 7, 10, 12, 0)
     run_timestamp = datetime(2026, 7, 10, 17, 0, 0)
-    period_start = get_period_start(now)
+    period_start = get_period_start(now, time(6, 0))
     expected_object_key = BackupService.make_object_key(period_start, run_timestamp)
 
     with Session(test_engine) as session:

@@ -120,12 +120,12 @@ def index(
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
-    current_period = get_current_period_start()
+    current_period = get_current_period_start(config.period_start_time)
 
     if period:
         try:
             selected_date = datetime.strptime(period, "%Y-%m-%d").date()
-            selected_period = datetime.combine(selected_date, time(6, 0))
+            selected_period = datetime.combine(selected_date, config.period_start_time)
         except ValueError:
             selected_period = current_period
     else:
@@ -167,7 +167,9 @@ def summary_cards(
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
-    summary = get_period_summary(session, config, get_current_period_start())
+    summary = get_period_summary(
+        session, config, get_current_period_start(config.period_start_time)
+    )
     return templates.TemplateResponse(
         "partials/summary_cards.html",
         {"request": request, "summary": summary},
@@ -182,14 +184,13 @@ def feed_target(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
+    config = get_or_create_config(session)
     if target_timestamp:
         selected_timestamp = target_timestamp
     elif target_date:
-        selected_timestamp = datetime.combine(target_date, time(6, 0))
+        selected_timestamp = datetime.combine(target_date, config.period_start_time)
     else:
         selected_timestamp = datetime.now()
-
-    config = get_or_create_config(session)
     feed_target_result = compute_feed_target(
         session, config, selected_timestamp, exclude_feeding_id=feeding_id
     )
@@ -220,7 +221,7 @@ def create_feeding(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    feeding_period = get_period_start(feeding.timestamp)
+    feeding_period = get_period_start(feeding.timestamp, config.period_start_time)
     return _render_feeding_list(request, session, config, feeding_period)
 
 
@@ -339,7 +340,7 @@ def complete_feeding(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    feeding_period = get_period_start(feeding.timestamp)
+    feeding_period = get_period_start(feeding.timestamp, config.period_start_time)
     response = _render_feeding_list(request, session, config, feeding_period)
     response.headers["HX-Trigger"] = "feeding-completed"
     return response
@@ -354,9 +355,9 @@ def feeding_row(
 ):
     feeding = get_feeding_or_404(session, feeding_id)
     config = get_or_create_config(session)
-    gap = get_feeding_gap(session, feeding)
+    gap = get_feeding_gap(session, feeding, config.period_start_time)
     effective_target = effective_target_for_feeding(session, config, feeding)
-    attach_feeding_number(session, feeding)
+    attach_feeding_number(session, config, feeding)
     template = (
         "partials/feeding_card.html"
         if _hx_target_is_card(request)
@@ -414,9 +415,9 @@ def update_feeding(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    gap = get_feeding_gap(session, feeding)
+    gap = get_feeding_gap(session, feeding, config.period_start_time)
     effective_target = effective_target_for_feeding(session, config, feeding)
-    attach_feeding_number(session, feeding)
+    attach_feeding_number(session, config, feeding)
     template = (
         "partials/feeding_card.html"
         if _hx_target_is_card(request)
@@ -444,10 +445,10 @@ def delete_feeding(
     _: Optional[str] = Depends(require_auth),
 ):
     feeding = get_feeding_or_404(session, feeding_id)
-    feeding_period = get_period_start(feeding.timestamp)
+    config = get_or_create_config(session)
+    feeding_period = get_period_start(feeding.timestamp, config.period_start_time)
     feeding_service.delete_feeding(session, feeding)
 
-    config = get_or_create_config(session)
     summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
         "partials/feeding_list.html",
@@ -529,6 +530,7 @@ def update_settings(
     start_volume: int = Form(...),
     increment: int = Form(...),
     increment_day: str = Form(...),
+    period_start_time: time = Form(...),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
@@ -537,6 +539,7 @@ def update_settings(
     config.start_volume = start_volume
     config.increment = increment
     config.increment_day = increment_day
+    config.period_start_time = period_start_time
     config.updated_at = datetime.utcnow()
     session.add(config)
     session.commit()

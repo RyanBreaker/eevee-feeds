@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, time
 
 import pytest
 from sqlmodel import Session
@@ -8,6 +8,7 @@ from sqlmodel import Session
 from app.backup_scheduler import BackupScheduler
 from app.database import session_factory
 from app.models import BackupLog
+from app.repository import get_or_create_config
 
 
 class MockBackupService:
@@ -71,6 +72,61 @@ async def test_check_skips_already_backed_up_period(test_engine):
 async def test_check_does_nothing_when_disabled(test_engine):
     now = datetime(2026, 7, 10, 12, 0)
     service = MockBackupService(enabled=False)
+    scheduler = BackupScheduler(
+        session_factory, service, interval=60, now_fn=lambda: now
+    )
+    await scheduler._check()
+
+    assert len(service.calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_check_uses_configured_period_start_time(test_engine):
+    # Under a 9PM start, noon on Jul 10 belongs to the Period that started
+    # Jul 9 at 9PM. An old 6AM-boundary log must not dedupe the new Period,
+    # so changing the setting fires one extra backup.
+    now = datetime(2026, 7, 10, 12, 0)
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+        config.period_start_time = time(21, 0)
+        session.add(config)
+        session.add(
+            BackupLog(
+                period_start=datetime(2026, 7, 10, 6, 0),
+                run_timestamp=now,
+                object_key="feedings/feedings_backup_2026-07-10_2026-07-10T120000Z.csv",
+                success=True,
+            )
+        )
+        session.commit()
+
+    service = MockBackupService(enabled=True)
+    scheduler = BackupScheduler(
+        session_factory, service, interval=60, now_fn=lambda: now
+    )
+    await scheduler._check()
+
+    assert len(service.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_check_skips_period_backed_up_under_configured_start(test_engine):
+    now = datetime(2026, 7, 10, 12, 0)
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+        config.period_start_time = time(21, 0)
+        session.add(config)
+        session.add(
+            BackupLog(
+                period_start=datetime(2026, 7, 9, 21, 0),
+                run_timestamp=now,
+                object_key="feedings/feedings_backup_2026-07-09_2026-07-10T120000Z.csv",
+                success=True,
+            )
+        )
+        session.commit()
+
+    service = MockBackupService(enabled=True)
     scheduler = BackupScheduler(
         session_factory, service, interval=60, now_fn=lambda: now
     )

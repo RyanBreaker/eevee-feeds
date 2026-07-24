@@ -1,4 +1,6 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+
+import pytest
 
 from app.models import TargetConfig
 from app.period import (
@@ -64,22 +66,49 @@ def test_format_feeding_countdown_at_window_start():
 
 def test_get_period_start_before_6am():
     dt = datetime(2026, 7, 9, 5, 0)
-    assert get_period_start(dt) == datetime(2026, 7, 8, 6, 0)
+    assert get_period_start(dt, time(6, 0)) == datetime(2026, 7, 8, 6, 0)
 
 
 def test_get_period_start_at_6am():
     dt = datetime(2026, 7, 9, 6, 0)
-    assert get_period_start(dt) == datetime(2026, 7, 9, 6, 0)
+    assert get_period_start(dt, time(6, 0)) == datetime(2026, 7, 9, 6, 0)
 
 
 def test_get_period_start_after_6am():
     dt = datetime(2026, 7, 9, 7, 0)
-    assert get_period_start(dt) == datetime(2026, 7, 9, 6, 0)
+    assert get_period_start(dt, time(6, 0)) == datetime(2026, 7, 9, 6, 0)
+
+
+@pytest.mark.parametrize(
+    "timestamp,start_time,expected",
+    [
+        # 9PM start: before boundary belongs to previous day's period
+        (datetime(2026, 7, 9, 20, 0), time(21, 0), datetime(2026, 7, 8, 21, 0)),
+        (datetime(2026, 7, 9, 21, 0), time(21, 0), datetime(2026, 7, 9, 21, 0)),
+        (datetime(2026, 7, 9, 23, 30), time(21, 0), datetime(2026, 7, 9, 21, 0)),
+        (datetime(2026, 7, 10, 5, 0), time(21, 0), datetime(2026, 7, 9, 21, 0)),
+        # Odd-minute start (6:37AM)
+        (datetime(2026, 7, 9, 6, 36), time(6, 37), datetime(2026, 7, 8, 6, 37)),
+        (datetime(2026, 7, 9, 6, 37), time(6, 37), datetime(2026, 7, 9, 6, 37)),
+        (datetime(2026, 7, 9, 18, 0), time(6, 37), datetime(2026, 7, 9, 6, 37)),
+        # Midnight start: period always belongs to the same date
+        (datetime(2026, 7, 9, 0, 0), time(0, 0), datetime(2026, 7, 9, 0, 0)),
+        (datetime(2026, 7, 9, 23, 59), time(0, 0), datetime(2026, 7, 9, 0, 0)),
+    ],
+)
+def test_get_period_start_parametrized(timestamp, start_time, expected):
+    assert get_period_start(timestamp, start_time) == expected
 
 
 def test_get_period_label():
     dt = datetime(2026, 7, 9, 7, 0)
-    assert get_period_label(dt) == "Jul 9"
+    assert get_period_label(dt, time(6, 0)) == "Jul 9"
+
+
+def test_get_period_label_uses_configured_start_time():
+    # With a 9PM start, 5AM on Jul 10 belongs to the Jul 9 period
+    dt = datetime(2026, 7, 10, 5, 0)
+    assert get_period_label(dt, time(21, 0)) == "Jul 9"
 
 
 def test_get_target_volume():

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from sqlmodel import Session
@@ -177,7 +177,7 @@ def test_get_feeding_gap_within_period(session):
     session.add(feeding2)
     session.commit()
 
-    gap = get_feeding_gap(session, feeding2)
+    gap = get_feeding_gap(session, feeding2, time(6, 0))
     assert gap == timedelta(hours=2)
 
 
@@ -188,7 +188,7 @@ def test_get_feeding_gap_no_previous_feeding(session):
     session.add(feeding)
     session.commit()
 
-    assert get_feeding_gap(session, feeding) is None
+    assert get_feeding_gap(session, feeding, time(6, 0)) is None
 
 
 def test_get_feedings_with_gaps_no_previous_feeding(session):
@@ -217,7 +217,7 @@ def test_get_feeding_gap_across_periods(session):
     session.add(feeding2)
     session.commit()
 
-    gap = get_feeding_gap(session, feeding2)
+    gap = get_feeding_gap(session, feeding2, time(6, 0))
     assert gap == timedelta(hours=22)
 
 
@@ -330,7 +330,7 @@ def test_get_feeding_gap_skips_snacks(session):
     session.add_all([feeding, snack, current])
     session.commit()
 
-    gap = get_feeding_gap(session, current)
+    gap = get_feeding_gap(session, current, time(6, 0))
     assert gap == timedelta(hours=2)
 
 

@@ -12,7 +12,7 @@ from sqlmodel import Session, desc, select
 from app.csv_io import FeedingCsvWriter
 from app.models import BackupLog, Feeding
 from app.period import get_period_start
-from app.repository import get_all_feedings
+from app.repository import get_all_feedings, get_or_create_config
 
 logger = logging.getLogger("uvicorn")
 
@@ -78,7 +78,8 @@ class BackupService:
         if run_timestamp is None:
             run_timestamp = datetime.utcnow()
 
-        period_start = get_period_start(now)
+        config = get_or_create_config(session)
+        period_start = get_period_start(now, config.period_start_time)
         object_key = self.make_object_key(period_start, run_timestamp)
 
         feedings = get_all_feedings(session)

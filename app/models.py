@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, time
 from typing import Optional
 
 from sqlalchemy import UniqueConstraint
@@ -30,6 +30,7 @@ class TargetConfig(SQLModel, table=True):
     start_volume: int
     increment: int
     increment_day: str = "Wednesday"
+    period_start_time: time = Field(default=time(6, 0))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

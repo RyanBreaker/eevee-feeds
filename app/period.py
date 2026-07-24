@@ -3,16 +3,16 @@ from datetime import datetime, time, timedelta, date
 from typing import Optional, Sequence
 
 
-def get_period_start(timestamp: datetime) -> datetime:
-    """Return the 6AM start of the feeding period that contains the timestamp."""
+def get_period_start(timestamp: datetime, start_time: time) -> datetime:
+    """Return the start of the feeding period that contains the timestamp."""
     dt = timestamp.date()
-    if timestamp.time() < time(6, 0):
+    if timestamp.time() < start_time:
         dt -= timedelta(days=1)
-    return datetime.combine(dt, time(6, 0))
+    return datetime.combine(dt, start_time)
 
 
-def get_period_label(timestamp: datetime) -> str:
-    return get_period_start(timestamp).strftime("%b %-d")
+def get_period_label(timestamp: datetime, start_time: time) -> str:
+    return get_period_start(timestamp, start_time).strftime("%b %-d")
 
 
 _DAY_MAP = {

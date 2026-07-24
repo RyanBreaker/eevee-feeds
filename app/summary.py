@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Optional
 
 from sqlmodel import Session
@@ -46,18 +46,24 @@ def attach_feeding_numbers(
     return feedings_with_gaps
 
 
-def attach_feeding_number(session: Session, feeding: Feeding) -> Feeding:
+def attach_feeding_number(
+    session: Session, config: TargetConfig, feeding: Feeding
+) -> Feeding:
     """Set ``feeding.number`` to the 1-based position within its Period."""
     # Bypass Pydantic so we can attach a transient computed value.
-    object.__setattr__(feeding, "number", get_feeding_number(session, feeding))
+    object.__setattr__(
+        feeding,
+        "number",
+        get_feeding_number(session, feeding, config.period_start_time),
+    )
     return feeding
 
 
 def _get_average_total_at_time(
-    session: Session, reference_time: datetime, days: int = 7
+    session: Session, reference_time: datetime, start_time: time, days: int = 7
 ) -> Optional[float]:
     """Return the average total intake at the same time of day over the last N days."""
-    current_period_start = get_period_start(reference_time)
+    current_period_start = get_period_start(reference_time, start_time)
     time_into_period = reference_time - current_period_start
     totals = []
     days_with_feedings = 0
@@ -75,8 +81,8 @@ def _get_average_total_at_time(
     return sum(totals) / len(totals)
 
 
-def get_current_period_start() -> datetime:
-    return get_period_start(datetime.now())
+def get_current_period_start(start_time: time) -> datetime:
+    return get_period_start(datetime.now(), start_time)
 
 
 def get_period_summary(session: Session, config: TargetConfig, period_start: datetime) -> dict:
@@ -124,7 +130,7 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     trend_variance = None
     trend_status_class = ""
     trend_pace = None
-    if period_start == get_current_period_start():
+    if period_start == get_current_period_start(config.period_start_time):
         now = datetime.now()
         last_feeding = get_last_feeding(session, skip_snacks=True)
         if last_feeding:
@@ -143,7 +149,9 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
             )
             next_feeding_window_end_ts = int(next_feeding_window[1].timestamp())
 
-        avg_total_at_time = _get_average_total_at_time(session, now)
+        avg_total_at_time = _get_average_total_at_time(
+            session, now, config.period_start_time
+        )
         if avg_total_at_time is not None:
             trend_variance = round(total - avg_total_at_time)
             trend_status_class = (
@@ -178,7 +186,7 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
 
 
 def get_chart_data(session: Session, config: TargetConfig, end_period: datetime) -> list[dict]:
-    current_period = get_current_period_start()
+    current_period = get_current_period_start(config.period_start_time)
     if end_period >= current_period:
         chart_end = current_period - timedelta(days=1)
     else:
@@ -194,7 +202,7 @@ def get_chart_data(session: Session, config: TargetConfig, end_period: datetime)
         period_feedings = [f for f, _ in summary["feedings"]]
         periods.append(
             {
-                "label": get_period_label(start),
+                "label": get_period_label(start, config.period_start_time),
                 "total": summary["total"] if has_feedings else None,
                 "target": summary["target"],
                 "po_pct": summary["po_pct"] if has_feedings else None,

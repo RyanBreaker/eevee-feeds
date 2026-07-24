@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Optional
 
 from sqlmodel import Session, select
@@ -57,9 +57,9 @@ def get_feedings_for_period(session: Session, period_start: datetime) -> list[Fe
     return list(session.exec(statement).all())
 
 
-def get_feeding_number(session: Session, feeding: Feeding) -> int:
+def get_feeding_number(session: Session, feeding: Feeding, start_time: time) -> int:
     """Return the 1-based position of ``feeding`` within its Period, in time order."""
-    period_start = get_period_start(feeding.timestamp)
+    period_start = get_period_start(feeding.timestamp, start_time)
     feedings = get_feedings_for_period(session, period_start)
     for number, candidate in enumerate(feedings, start=1):
         if candidate.id == feeding.id:
@@ -110,8 +110,10 @@ def get_feedings_with_gaps(
     return result
 
 
-def get_feeding_gap(session: Session, feeding: Feeding) -> Optional[timedelta]:
-    period_start = get_period_start(feeding.timestamp)
+def get_feeding_gap(
+    session: Session, feeding: Feeding, start_time: time
+) -> Optional[timedelta]:
+    period_start = get_period_start(feeding.timestamp, start_time)
     previous_feeding = session.exec(
         select(Feeding)
         .where(

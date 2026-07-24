@@ -28,7 +28,7 @@ def compute_feed_target(
     timestamp: datetime,
     exclude_feeding_id: Optional[int] = None,
 ) -> FeedTarget:
-    period_start = get_period_start(timestamp)
+    period_start = get_period_start(timestamp, config.period_start_time)
     target_volume = get_target_volume(config, period_start.date())
     previous_feeding = get_previous_feeding(
         session, timestamp, exclude_feeding_id=exclude_feeding_id, skip_snacks=True

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 import pytest
 from sqlmodel import Session
@@ -22,7 +22,7 @@ def session(test_engine):
 
 def test_get_current_period_start_is_period_start_of_now():
     now = datetime.now()
-    period_start = get_current_period_start()
+    period_start = get_current_period_start(time(6, 0))
     # period_start should be 6 AM today or yesterday depending on time of day
     assert period_start.hour == 6
     assert period_start.minute == 0
@@ -113,6 +113,58 @@ def test_get_period_summary_infers_target_for_legacy_feeding(session):
     assert summary["target_variance"] == 40 - 100
 
 
+def test_get_period_summary_with_non_default_period_start(session):
+    config = get_or_create_config(session)
+    config.period_start_time = time(21, 0)
+    session.add(config)
+    # 5AM on Jul 4 falls inside the Period that started Jul 3 at 9PM
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 4, 5, 0), po_amount=30, ng_amount=10
+    )
+    # 8:59PM on Jul 4 is still inside the Jul 3 Period; 9PM starts the Jul 4 Period
+    before_boundary = Feeding(
+        timestamp=datetime(2026, 7, 4, 20, 59), po_amount=10, ng_amount=0
+    )
+    at_boundary = Feeding(
+        timestamp=datetime(2026, 7, 4, 21, 0), po_amount=20, ng_amount=0
+    )
+    session.add_all([feeding, before_boundary, at_boundary])
+    session.commit()
+
+    summary = get_period_summary(session, config, datetime(2026, 7, 3, 21, 0))
+
+    assert summary["total"] == 50
+    assert len(summary["feedings"]) == 2
+    # The target is keyed on the date the Period starts
+    assert summary["target"] == 520
+
+    next_summary = get_period_summary(session, config, datetime(2026, 7, 4, 21, 0))
+    assert next_summary["total"] == 20
+    assert len(next_summary["feedings"]) == 1
+
+
+def test_get_chart_data_with_non_default_period_start(session):
+    config = get_or_create_config(session)
+    config.period_start_time = time(21, 0)
+    session.add(config)
+    # 5AM on Jul 4 belongs to the Period labelled by its Jul 3 start date
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 4, 5, 0), po_amount=30, ng_amount=10
+    )
+    session.add(feeding)
+    session.commit()
+
+    periods = get_chart_data(session, config, datetime(2026, 7, 4, 21, 0))
+
+    assert len(periods) == 14
+    jul_3 = periods[-2]
+    assert jul_3["label"] == "Jul 3"
+    assert jul_3["total"] == 40
+    jul_4 = periods[-1]
+    assert jul_4["label"] == "Jul 4"
+    assert jul_4["total"] is None
+
+
 def test_get_period_summary_target_progress_and_status(session):
     config = get_or_create_config(session)
     config.start_volume = 100
@@ -180,7 +232,7 @@ def test_get_period_summary_for_current_period_includes_next_window(session):
     session.add(feeding)
     session.commit()
 
-    current_period = get_current_period_start()
+    current_period = get_current_period_start(time(6, 0))
     summary = get_period_summary(session, config, current_period)
 
     assert summary["time_since_last"] is not None
@@ -207,7 +259,7 @@ def test_get_period_summary_next_window_ignores_snack(session, monkeypatch):
     session.add_all([real_feeding, snack])
     session.commit()
 
-    current_period = get_current_period_start()
+    current_period = get_current_period_start(time(6, 0))
     summary = get_period_summary(session, config, current_period)
 
     assert summary["time_since_last"] is not None
@@ -279,7 +331,7 @@ def test_get_average_total_at_time_computes_average(session):
     )
     session.commit()
 
-    avg = _get_average_total_at_time(session, reference_time)
+    avg = _get_average_total_at_time(session, reference_time, time(6, 0))
     # 7 days: Jul 3-9. Jul 7,8,9 = 30,40,50; Jul 3,4,5 = 0; Jul 6 = 0 (after cutoff)
     assert avg == (30 + 40 + 50) / 7
 
@@ -296,13 +348,13 @@ def test_get_average_total_at_time_returns_none_with_too_few_days(session):
         )
     session.commit()
 
-    avg = _get_average_total_at_time(session, reference_time)
+    avg = _get_average_total_at_time(session, reference_time, time(6, 0))
     assert avg is None
 
 
 def test_get_period_summary_includes_trend_for_current_period(session, monkeypatch):
     config = get_or_create_config(session)
-    current_period_start = get_current_period_start()
+    current_period_start = get_current_period_start(time(6, 0))
     now = current_period_start + timedelta(hours=2)
 
     class FakeDatetime:
@@ -350,7 +402,7 @@ def test_get_period_summary_includes_trend_for_current_period(session, monkeypat
 
 def test_get_period_summary_no_trend_pace_under_one_hour(session, monkeypatch):
     config = get_or_create_config(session)
-    current_period_start = get_current_period_start()
+    current_period_start = get_current_period_start(time(6, 0))
     now = current_period_start + timedelta(minutes=30)
 
     class FakeDatetime:

@@ -9,6 +9,7 @@ from app.backup_service import BackupService, backup_service
 from app.database import session_factory
 from app.models import BackupLog
 from app.period import get_period_start
+from app.repository import get_or_create_config
 
 logger = logging.getLogger("uvicorn")
 
@@ -59,11 +60,10 @@ class BackupScheduler:
             return
 
         now = self.now_fn()
-        period_start = get_period_start(now)
-        if now < period_start:
-            return
-
         with self.session_factory() as session:
+            config = get_or_create_config(session)
+            period_start = get_period_start(now, config.period_start_time)
+
             if self._has_attempt_for_period(session, period_start):
                 logger.debug("Period %s already has a backup attempt; skipping", period_start)
                 return
