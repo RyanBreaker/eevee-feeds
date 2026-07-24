@@ -116,6 +116,7 @@ def logout(request: Request):
 def index(
     request: Request,
     period: Optional[str] = Query(None),
+    prototype: Optional[str] = Query(None),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
@@ -156,6 +157,7 @@ def index(
             "now": default_timestamp,
             "feeding_start": feeding_start,
             "default_timestamp": default_timestamp,
+            "prototype_variant": prototype,
         },
     )
 

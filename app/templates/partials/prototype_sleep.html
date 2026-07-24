@@ -1,0 +1,159 @@
+{# PROTOTYPE — throwaway. Three variants of sleep recording, switchable via ?prototype=A|B|C on /. #}
+<section class="section prototype-banner">
+  <strong>PROTOTYPE</strong> — sleep recording, variant {{ prototype_variant }}. Nothing here saves.
+</section>
+
+{% if prototype_variant == 'A' %}
+{# Variant A — Live toggle, mirroring FeedingStart. Sleep only ever starts/stops live; no after-the-fact entry. #}
+<section class="section">
+  <h2>Sleep</h2>
+  <div class="sleep-live sleep-in-progress">
+    <p>
+      Asleep for <span class="auto-duration" data-since-seconds="4530"></span>
+      <span class="feed-interval-note">(subtracting from target)</span>
+    </p>
+    <div class="form-actions">
+      <button type="button">Wake up</button>
+    </div>
+  </div>
+</section>
+<section class="section">
+  <h2>Sleep</h2>
+  <form class="feeding-start-form">
+    <div class="form-row">
+      <label>
+        Time
+        <input type="datetime-local" name="sleep_start" value="{{ default_timestamp.strftime('%Y-%m-%dT%H:%M') }}">
+        <button type="button" class="timestamp-now-button" title="Set time to now">Now</button>
+      </label>
+      <button type="button">Start sleep</button>
+    </div>
+  </form>
+  <p class="prototype-note">Idle state shown below the in-progress state for comparison. No way to enter a past sleep — if you forgot to start the timer, that sleep is lost.</p>
+</section>
+
+{% elif prototype_variant == 'B' %}
+{# Variant B — After-the-fact entry only. No live timer; sleeps are recorded like past feedings and listed in the timeline. #}
+<section class="section">
+  <h2>Record Sleep</h2>
+  <form class="feeding-form">
+    <div class="form-row">
+      <label>
+        Fell asleep
+        <input type="datetime-local" name="sleep_start" value="{{ default_timestamp.strftime('%Y-%m-%dT%H:%M') }}">
+      </label>
+      <label>
+        Woke up
+        <input type="datetime-local" name="sleep_end" value="{{ default_timestamp.strftime('%Y-%m-%dT%H:%M') }}">
+      </label>
+      <button type="button">Save Sleep</button>
+    </div>
+  </form>
+</section>
+<section class="section">
+  <h2>Timeline preview</h2>
+  <table class="feeding-table">
+    <tbody>
+      <tr class="sleep-row">
+        <td>1:30 PM</td>
+        <td colspan="3">Slept 1:30 PM – 3:05 PM (1h 35m)</td>
+        <td>
+          <button type="button" class="button-secondary">Edit</button>
+          <button type="button" class="button-secondary">Delete</button>
+        </td>
+      </tr>
+      <tr>
+        <td>12:00 PM</td>
+        <td>90 ml</td>
+        <td>PO 60 / NG 30</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="prototype-note">Every sleep is typed in after the fact. Editing a sleep is just editing its row.</p>
+</section>
+
+{% elif prototype_variant == 'C' %}
+{# Variant C — Both: live toggle for the common case, after-the-fact entry/edit for corrections. #}
+<section class="section">
+  <h2>Sleep</h2>
+  <div class="sleep-live sleep-in-progress">
+    <p>
+      Asleep for <span class="auto-duration" data-since-seconds="4530"></span>
+      <span class="feed-interval-note">(subtracting from target)</span>
+    </p>
+    <div class="form-actions">
+      <button type="button">Wake up</button>
+      <button type="button" class="button-secondary">Discard</button>
+    </div>
+  </div>
+  <details class="sleep-manual-entry">
+    <summary>Record a past sleep</summary>
+    <form class="feeding-form">
+      <div class="form-row">
+        <label>
+          Fell asleep
+          <input type="datetime-local" name="sleep_start">
+        </label>
+        <label>
+          Woke up
+          <input type="datetime-local" name="sleep_end">
+        </label>
+        <button type="button">Save Sleep</button>
+      </div>
+    </form>
+  </details>
+</section>
+<section class="section">
+  <h2>Timeline preview</h2>
+  <table class="feeding-table">
+    <tbody>
+      <tr class="sleep-row">
+        <td>1:30 PM</td>
+        <td colspan="3">Slept 1:30 PM – 3:05 PM (1h 35m)</td>
+        <td>
+          <button type="button" class="button-secondary">Edit</button>
+          <button type="button" class="button-secondary">Delete</button>
+        </td>
+      </tr>
+      <tr>
+        <td>12:00 PM</td>
+        <td>90 ml</td>
+        <td>PO 60 / NG 30</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="prototype-note">Live toggle up top; past-sleep entry tucked behind a disclosure; completed sleeps editable in the timeline.</p>
+</section>
+{% endif %}
+
+<nav class="prototype-switcher" aria-label="Prototype variant switcher">
+  <a href="/?prototype={% if prototype_variant == 'A' %}C{% elif prototype_variant == 'B' %}A{% else %}B{% endif %}" class="prototype-arrow" title="Previous variant">←</a>
+  <span class="prototype-label">
+    {{ prototype_variant }} —
+    {% if prototype_variant == 'A' %}Live toggle only
+    {% elif prototype_variant == 'B' %}After-the-fact only
+    {% else %}Live + edit{% endif %}
+  </span>
+  <a href="/?prototype={% if prototype_variant == 'A' %}B{% elif prototype_variant == 'B' %}C{% else %}A{% endif %}" class="prototype-arrow" title="Next variant">→</a>
+</nav>
+<script>
+  (function() {
+    if (window.__prototypeSwitcherBound) return;
+    window.__prototypeSwitcherBound = true;
+    var order = ['A', 'B', 'C'];
+    document.addEventListener('keydown', function(e) {
+      if (e.target.closest('input, textarea, [contenteditable]')) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var current = new URLSearchParams(window.location.search).get('prototype') || 'A';
+      var i = order.indexOf(current);
+      var next = e.key === 'ArrowRight' ? order[(i + 1) % 3] : order[(i + 2) % 3];
+      var params = new URLSearchParams(window.location.search);
+      params.set('prototype', next);
+      window.location.search = params.toString();
+    });
+  })();
+</script>

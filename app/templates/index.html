@@ -21,6 +21,9 @@
 
 {% if is_current %}
 {% include "partials/feeding_start_section.html" %}
+{% if prototype_variant %}
+{% include "partials/prototype_sleep.html" %}
+{% endif %}
 {% elif feeding_start %}
 <section class="section feeding-start-notice">
   <p>A feed is in progress — <a href="/" class="today-link">go to Today</a> to complete it.</p>
