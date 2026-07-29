@@ -77,6 +77,27 @@ class NotificationService:
             payload["click"] = self.app_url
         return payload
 
+    @staticmethod
+    def _log_send_error(kind: str, url: str, exc: Exception) -> None:
+        if isinstance(exc, httpx.HTTPStatusError):
+            logger.error(
+                "Failed to send ntfy %s: HTTP %s from %s, response: %s",
+                kind,
+                exc.response.status_code,
+                exc.request.url,
+                exc.response.text[:500],
+            )
+        elif isinstance(exc, httpx.RequestError):
+            logger.error(
+                "Failed to send ntfy %s: %s: %s (url=%s)",
+                kind,
+                type(exc).__name__,
+                exc,
+                url,
+            )
+        else:
+            logger.exception("Failed to send ntfy %s (url=%s)", kind, url)
+
     async def _send_notification_for(
         self,
         client: httpx.AsyncClient,
@@ -99,7 +120,7 @@ class NotificationService:
             logger.info("Sent ntfy notification: %s", title)
             return True
         except Exception as exc:
-            logger.error("Failed to send ntfy notification: %s", exc)
+            self._log_send_error("notification", url, exc)
             return False
 
     async def _send_start_reminder_for(
@@ -121,7 +142,7 @@ class NotificationService:
             logger.info("Sent ntfy start reminder: %s", title)
             return True
         except Exception as exc:
-            logger.error("Failed to send ntfy start reminder: %s", exc)
+            self._log_send_error("start reminder", url, exc)
             return False
 
     def _is_sent(self, session: Session, feeding_id: int, threshold: int) -> bool:

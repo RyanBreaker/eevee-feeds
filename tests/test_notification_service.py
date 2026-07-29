@@ -503,6 +503,70 @@ async def test_run_check_start_reminders_skip_already_sent(test_engine):
     ]
 
 
+@pytest.mark.asyncio
+async def test_send_start_reminder_logs_http_error_details(test_engine, caplog):
+    def handler(request: httpx.Request):
+        return httpx.Response(
+            429, json={"code": 42901, "error": "rate limit reached"}
+        )
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    feeding_start = FeedingStart(timestamp=datetime.now())
+
+    with caplog.at_level("ERROR"):
+        ok = await service._send_start_reminder_for(
+            client, feeding_start, timedelta(minutes=15)
+        )
+
+    assert ok is False
+    assert "429" in caplog.text
+    assert "rate limit reached" in caplog.text
+    assert "https://ntfy.sh/" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_send_start_reminder_logs_network_error_details(test_engine, caplog):
+    def handler(request: httpx.Request):
+        raise httpx.ConnectError("connection refused", request=request)
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    feeding_start = FeedingStart(timestamp=datetime.now())
+
+    with caplog.at_level("ERROR"):
+        ok = await service._send_start_reminder_for(
+            client, feeding_start, timedelta(minutes=15)
+        )
+
+    assert ok is False
+    assert "ConnectError" in caplog.text
+    assert "connection refused" in caplog.text
+    assert "https://ntfy.sh/" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_send_notification_logs_http_error_details(test_engine, caplog):
+    def handler(request: httpx.Request):
+        return httpx.Response(500, text="internal server error")
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    feeding = Feeding(
+        timestamp=datetime.now() - timedelta(hours=5), po_amount=30, ng_amount=10
+    )
+
+    with caplog.at_level("ERROR"):
+        ok = await service._send_notification_for(
+            client, feeding, timedelta(hours=5), [4]
+        )
+
+    assert ok is False
+    assert "500" in caplog.text
+    assert "internal server error" in caplog.text
+    assert "https://ntfy.sh/" in caplog.text
+
+
 def test_get_status_with_feeding_start(test_engine):
     now = datetime(2026, 7, 10, 12, 0)
     start_time = now - timedelta(minutes=10)
