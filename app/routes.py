@@ -83,6 +83,11 @@ def _render_feeding_list(
     )
 
 
+@router.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: Optional[str] = None):
     return templates.TemplateResponse(

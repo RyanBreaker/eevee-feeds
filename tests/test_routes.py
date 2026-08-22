@@ -14,6 +14,12 @@ from app.repository import get_or_create_config
 from app.summary import get_chart_data
 
 
+def test_health(client):
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+
+
 def test_login_page(client):
     r = client.get("/login")
     assert r.status_code == 200
