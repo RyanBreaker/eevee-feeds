@@ -10,6 +10,8 @@ from app.period import (
     get_period_start,
     get_target_volume,
     linear_trend,
+    linear_trend_fitted_at,
+    linear_trend_slope_at,
 )
 from app.repository import (
     get_feeding_number,
@@ -81,6 +83,48 @@ def _get_average_total_at_time(
     return sum(totals) / len(totals)
 
 
+def _trend_status_class(variance: int) -> str:
+    return "trend-status-green" if variance >= 0 else "trend-status-red"
+
+
+def _get_previous_period_total_at_time(
+    session: Session, reference_time: datetime, start_time: time
+) -> Optional[int]:
+    """Return the previous Period's total intake at the same elapsed time.
+
+    Returns None when the previous Period has no Feedings at all.
+    """
+    current_period_start = get_period_start(reference_time, start_time)
+    previous_period_start = current_period_start - timedelta(days=1)
+    feedings = get_feedings_for_period(session, previous_period_start)
+    if not feedings:
+        return None
+    cutoff = previous_period_start + (reference_time - current_period_start)
+    return sum(
+        f.po_amount + f.ng_amount for f in feedings if f.timestamp <= cutoff
+    )
+
+
+def _get_intake_trend(session: Session, config: TargetConfig) -> Optional[int]:
+    """Return the Intake trend slope (mL/day) over the last 14 completed Periods.
+
+    Empty Periods still count as day positions so the slope is per day.
+    Returns None when fewer than 3 of those Periods have Feedings.
+    """
+    current_period = get_current_period_start(config.period_start_time)
+    days = []
+    totals = []
+    for day_offset in range(14, 0, -1):
+        start = current_period - timedelta(days=day_offset)
+        feedings = get_feedings_for_period(session, start)
+        if feedings:
+            days.append(14 - day_offset)
+            totals.append(sum(f.po_amount + f.ng_amount for f in feedings))
+    if len(totals) < 3:
+        return None
+    return round(linear_trend_slope_at(days, totals))
+
+
 def get_current_period_start(start_time: time) -> datetime:
     return get_period_start(datetime.now(), start_time)
 
@@ -130,7 +174,11 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     trend_variance = None
     trend_status_class = ""
     trend_pace = None
-    if period_start == get_current_period_start(config.period_start_time):
+    trend_variance_yesterday = None
+    trend_status_class_yesterday = ""
+    intake_trend = None
+    is_current = period_start == get_current_period_start(config.period_start_time)
+    if is_current:
         now = datetime.now()
         last_feeding = get_last_feeding(session, skip_snacks=True)
         if last_feeding:
@@ -154,12 +202,19 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         )
         if avg_total_at_time is not None:
             trend_variance = round(total - avg_total_at_time)
-            trend_status_class = (
-                "trend-status-green" if trend_variance >= 0 else "trend-status-red"
+            trend_status_class = _trend_status_class(trend_variance)
+        yesterday_total_at_time = _get_previous_period_total_at_time(
+            session, now, config.period_start_time
+        )
+        if yesterday_total_at_time is not None:
+            trend_variance_yesterday = round(total - yesterday_total_at_time)
+            trend_status_class_yesterday = _trend_status_class(
+                trend_variance_yesterday
             )
         elapsed_hours = (now - period_start).total_seconds() / 3600
         if elapsed_hours >= 1 and total > 0:
             trend_pace = round(total / elapsed_hours * 24)
+        intake_trend = _get_intake_trend(session, config)
 
     return {
         "po": po,
@@ -182,10 +237,15 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "trend_variance": trend_variance,
         "trend_status_class": trend_status_class,
         "trend_pace": trend_pace,
+        "trend_variance_yesterday": trend_variance_yesterday,
+        "trend_status_class_yesterday": trend_status_class_yesterday,
+        "intake_trend": intake_trend,
+        "is_current": is_current,
     }
 
 
 def get_chart_data(session: Session, config: TargetConfig, end_period: datetime) -> list[dict]:
+    oral_only = config.tracking_mode == "oral_only"
     current_period = get_current_period_start(config.period_start_time)
     if end_period >= current_period:
         chart_end = current_period - timedelta(days=1)
@@ -200,33 +260,40 @@ def get_chart_data(session: Session, config: TargetConfig, end_period: datetime)
         has_feedings = summary["total"] > 0
         has_data.append(has_feedings)
         period_feedings = [f for f, _ in summary["feedings"]]
-        periods.append(
-            {
-                "label": get_period_label(start, config.period_start_time),
-                "total": summary["total"] if has_feedings else None,
-                "target": summary["target"],
-                "po_pct": summary["po_pct"] if has_feedings else None,
-                "regular_count": (
-                    sum(1 for f in period_feedings if not f.is_snack)
-                    if has_feedings
-                    else None
-                ),
-                "snack_count": (
-                    sum(1 for f in period_feedings if f.is_snack)
-                    if has_feedings
-                    else None
-                ),
-            }
-        )
+        period = {
+            "label": get_period_label(start, config.period_start_time),
+            "total": summary["total"] if has_feedings else None,
+            "target": summary["target"],
+            "regular_count": (
+                sum(1 for f in period_feedings if not f.is_snack)
+                if has_feedings
+                else None
+            ),
+            "snack_count": (
+                sum(1 for f in period_feedings if f.is_snack)
+                if has_feedings
+                else None
+            ),
+        }
+        if not oral_only:
+            period["po_pct"] = summary["po_pct"] if has_feedings else None
+        periods.append(period)
 
     x_values = [i for i, has in enumerate(has_data) if has]
-    y_values = [periods[i]["po_pct"] for i in x_values]
-    trend_values = linear_trend(y_values)
+    if oral_only:
+        trend_key = "intake_trend_line"
+        y_values = [periods[i]["total"] for i in x_values]
+        # Fit over true day positions so the line matches the mL/day slope.
+        trend_values = linear_trend_fitted_at(x_values, y_values)
+    else:
+        trend_key = "po_trend"
+        y_values = [periods[i]["po_pct"] for i in x_values]
+        trend_values = linear_trend(y_values)
     trend_iter = iter(trend_values)
     for i, has in enumerate(has_data):
         if has:
-            periods[i]["po_trend"] = round(next(trend_iter), 1)
+            periods[i][trend_key] = round(next(trend_iter), 1)
         else:
-            periods[i]["po_trend"] = None
+            periods[i][trend_key] = None
 
     return periods

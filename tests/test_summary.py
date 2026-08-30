@@ -400,6 +400,170 @@ def test_get_period_summary_includes_trend_for_current_period(session, monkeypat
     assert summary["trend_pace"] == 1200
 
 
+def _fake_now(now):
+    class FakeDatetime:
+        @classmethod
+        def now(cls):
+            return now
+
+        @classmethod
+        def utcnow(cls):
+            return now
+
+    return FakeDatetime
+
+
+def test_get_period_summary_includes_vs_yesterday(session, monkeypatch):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    # Today: 100 ml so far.
+    session.add(
+        Feeding(
+            timestamp=now - timedelta(minutes=30),
+            po_amount=100,
+            ng_amount=0,
+        )
+    )
+    # Yesterday: 60 ml before the same elapsed time, 40 ml after it.
+    yesterday = current_period_start - timedelta(days=1)
+    session.add_all(
+        [
+            Feeding(
+                timestamp=yesterday + timedelta(hours=1), po_amount=60, ng_amount=0
+            ),
+            Feeding(
+                timestamp=yesterday + timedelta(hours=3), po_amount=40, ng_amount=0
+            ),
+        ]
+    )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["trend_variance_yesterday"] == 40
+    assert summary["trend_status_class_yesterday"] == "trend-status-green"
+
+
+def test_get_period_summary_vs_yesterday_omitted_when_yesterday_empty(
+    session, monkeypatch
+):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    session.add(
+        Feeding(
+            timestamp=now - timedelta(minutes=30),
+            po_amount=100,
+            ng_amount=0,
+        )
+    )
+    # Feedings two and three days ago, but nothing yesterday.
+    for day_offset in (2, 3):
+        session.add(
+            Feeding(
+                timestamp=current_period_start - timedelta(days=day_offset),
+                po_amount=50,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["trend_variance_yesterday"] is None
+
+
+def test_get_period_summary_includes_intake_trend(session, monkeypatch):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    # Three recent Periods with totals rising 10 ml/day: 100, 110, 120.
+    for day_offset, amount in [(3, 100), (2, 110), (1, 120)]:
+        session.add(
+            Feeding(
+                timestamp=current_period_start - timedelta(days=day_offset),
+                po_amount=amount,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["intake_trend"] == 10
+
+
+def test_get_period_summary_intake_trend_counts_empty_periods_as_days(
+    session, monkeypatch
+):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    # Feedings on day 1, 7, and 14 of the 14-Period window, on a perfect
+    # +5 mL/day line: 100, 130, 165. A regression over compressed
+    # (non-empty) positions would report ~+32 mL/day instead of +5.
+    for day_offset, amount in [(14, 100), (7, 130), (1, 165)]:
+        session.add(
+            Feeding(
+                timestamp=current_period_start - timedelta(days=day_offset),
+                po_amount=amount,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["intake_trend"] == 5
+
+
+def test_get_period_summary_intake_trend_none_with_fewer_than_3_periods(
+    session, monkeypatch
+):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    for day_offset in (1, 2):
+        session.add(
+            Feeding(
+                timestamp=current_period_start - timedelta(days=day_offset),
+                po_amount=100,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["intake_trend"] is None
+
+
 def test_get_period_summary_no_trend_pace_under_one_hour(session, monkeypatch):
     config = get_or_create_config(session)
     current_period_start = get_current_period_start(time(6, 0))
@@ -537,6 +701,47 @@ def test_get_chart_data_computes_trend_line(session):
     data_days = [d for d in chart_data if d["total"] is not None]
     assert len(data_days) == 5
     assert all(d["po_trend"] is not None for d in data_days)
+
+
+def test_get_chart_data_oral_mode_omits_po_pct_and_adds_intake_trend(session):
+    config = get_or_create_config(session)
+    config.tracking_mode = "oral_only"
+    session.add(config)
+    for i in range(3):
+        session.add(
+            Feeding(
+                timestamp=datetime(2026, 7, 3 + i, 12, 0),
+                po_amount=100 + i * 10,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    chart_data = get_chart_data(session, config, datetime(2026, 7, 5, 6, 0))
+
+    data_days = [d for d in chart_data if d["total"] is not None]
+    assert len(data_days) == 3
+    for day in chart_data:
+        assert "po_pct" not in day
+        assert "po_trend" not in day
+        assert "intake_trend_line" in day
+    assert all(d["intake_trend_line"] is not None for d in data_days)
+    empty_day = next(d for d in chart_data if d["total"] is None)
+    assert empty_day["intake_trend_line"] is None
+
+
+def test_get_chart_data_ng_mode_has_po_pct_and_no_intake_trend(session):
+    config = get_or_create_config(session)
+    session.add(
+        Feeding(timestamp=datetime(2026, 7, 5, 12, 0), po_amount=30, ng_amount=10)
+    )
+    session.commit()
+
+    chart_data = get_chart_data(session, config, datetime(2026, 7, 5, 6, 0))
+
+    data_day = next(d for d in chart_data if d["total"] is not None)
+    assert data_day["po_pct"] == 75.0
+    assert "intake_trend_line" not in data_day
 
 
 def test_attach_effective_targets_sets_transient_attribute(session):

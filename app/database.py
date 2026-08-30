@@ -41,10 +41,25 @@ def _add_period_start_time_column_if_missing() -> None:
         )
 
 
+def _add_tracking_mode_column_if_missing() -> None:
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("targetconfig")}
+    if "tracking_mode" in columns:
+        return
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE targetconfig ADD COLUMN tracking_mode "
+                "VARCHAR NOT NULL DEFAULT 'ng_plus_po'"
+            )
+        )
+
+
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
     _add_is_snack_column_if_missing()
     _add_period_start_time_column_if_missing()
+    _add_tracking_mode_column_if_missing()
 
 
 def get_session():

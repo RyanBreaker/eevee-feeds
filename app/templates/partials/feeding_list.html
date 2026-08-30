@@ -6,11 +6,17 @@
     <tr>
       <th>#</th>
       <th>Time</th>
+      {% if tracking_mode == 'oral_only' %}
+      <th>Amount</th>
+      {% else %}
       <th>PO</th>
       <th>NG</th>
       <th>Total</th>
+      {% endif %}
       <th>Suggested</th>
+      {% if tracking_mode != 'oral_only' %}
       <th>PO %</th>
+      {% endif %}
       <th>Gap</th>
       <th>Notes</th>
       <th></th>
@@ -21,7 +27,7 @@
     {% include "partials/feeding_row.html" %}
     {% else %}
     <tr>
-      <td colspan="10" class="empty">No feedings recorded for this period.</td>
+      <td colspan="{{ 7 if tracking_mode == 'oral_only' else 10 }}" class="empty">No feedings recorded for this period.</td>
     </tr>
     {% endfor %}
   </tbody>

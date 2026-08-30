@@ -12,7 +12,7 @@ from app.auth import require_auth, verify_credentials
 from app.csv_import import import_feedings_from_text
 from app.csv_io import FeedingCsvWriter
 from app.database import get_session
-from app.models import Feeding, FeedingStart, TargetConfig
+from app.models import Feeding, FeedingStart, TargetConfig, TRACKING_MODES
 from app.notification_service import notification_service
 from app.period import (
     format_duration,
@@ -65,6 +65,26 @@ def _require_timestamp_not_future(timestamp: datetime) -> None:
         raise HTTPException(status_code=400, detail="Timestamp cannot be in the future")
 
 
+def _resolve_ng_amount(
+    config: TargetConfig,
+    ng_amount: Optional[int],
+    existing: Optional[Feeding] = None,
+) -> int:
+    """Resolve the NG amount for a submission under the current Tracking mode.
+
+    In oral_only mode the form omits the NG field: new feedings record 0,
+    and edits to feedings keep their existing NG amount so NG-era history
+    is not clobbered. In ng_plus_po mode the field is required.
+    """
+    if config.tracking_mode == "oral_only":
+        if ng_amount is None:
+            return existing.ng_amount if existing is not None else 0
+        return ng_amount
+    if ng_amount is None:
+        raise HTTPException(status_code=400, detail="ng_amount is required")
+    return ng_amount
+
+
 def _render_feeding_list(
     request: Request,
     session: Session,
@@ -78,6 +98,7 @@ def _render_feeding_list(
             "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
+            "tracking_mode": config.tracking_mode,
             "now": datetime.now(),
         },
     )
@@ -161,6 +182,7 @@ def index(
             "now": default_timestamp,
             "feeding_start": feeding_start,
             "default_timestamp": default_timestamp,
+            "tracking_mode": config.tracking_mode,
         },
     )
 
@@ -177,7 +199,11 @@ def summary_cards(
     )
     return templates.TemplateResponse(
         "partials/summary_cards.html",
-        {"request": request, "summary": summary},
+        {
+            "request": request,
+            "summary": summary,
+            "tracking_mode": config.tracking_mode,
+        },
     )
 
 
@@ -212,16 +238,17 @@ def create_feeding(
     request: Request,
     timestamp: datetime = Form(...),
     po_amount: int = Form(...),
-    ng_amount: int = Form(...),
+    ng_amount: Optional[int] = Form(None),
     notes: Optional[str] = Form(None),
     is_snack: bool = Form(False),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
     config = get_or_create_config(session)
+    ng = _resolve_ng_amount(config, ng_amount)
     try:
         feeding = feeding_service.create_feeding(
-            session, config, timestamp, po_amount, ng_amount, notes, is_snack
+            session, config, timestamp, po_amount, ng, notes, is_snack
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -232,13 +259,16 @@ def create_feeding(
 
 def _render_feeding_start_section(
     request: Request,
+    session: Session,
     feeding_start: Optional[FeedingStart],
 ) -> Response:
+    config = get_or_create_config(session)
     return templates.TemplateResponse(
         "partials/feeding_start_section.html",
         {
             "request": request,
             "feeding_start": feeding_start,
+            "tracking_mode": config.tracking_mode,
             "default_timestamp": _now_truncated(),
         },
     )
@@ -250,7 +280,7 @@ def feeding_start_section(
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
-    return _render_feeding_start_section(request, get_feeding_start(session))
+    return _render_feeding_start_section(request, session, get_feeding_start(session))
 
 
 @router.post("/feedings/start", response_class=HTMLResponse)
@@ -265,7 +295,7 @@ def start_feeding(
         raise HTTPException(status_code=409, detail="A feed is already in progress")
 
     feeding_start = create_feeding_start(session, timestamp)
-    return _render_feeding_start_section(request, feeding_start)
+    return _render_feeding_start_section(request, session, feeding_start)
 
 
 @router.put("/feedings/start", response_class=HTMLResponse)
@@ -282,7 +312,7 @@ def update_feeding_start(
         raise HTTPException(status_code=404, detail="No feed in progress")
 
     feeding_start = update_feeding_start_timestamp(session, feeding_start, timestamp)
-    return _render_feeding_start_section(request, feeding_start)
+    return _render_feeding_start_section(request, session, feeding_start)
 
 
 @router.delete("/feedings/start", response_class=HTMLResponse)
@@ -294,7 +324,7 @@ def cancel_feeding_start(
     feeding_start = get_feeding_start(session)
     if feeding_start:
         delete_feeding_start(session, feeding_start)
-    return _render_feeding_start_section(request, None)
+    return _render_feeding_start_section(request, session, None)
 
 
 @router.get("/feedings/start-target", response_class=HTMLResponse)
@@ -327,7 +357,7 @@ def complete_feeding(
     request: Request,
     timestamp: datetime = Form(...),
     po_amount: int = Form(...),
-    ng_amount: int = Form(...),
+    ng_amount: Optional[int] = Form(None),
     notes: Optional[str] = Form(None),
     is_snack: bool = Form(False),
     session: Session = Depends(get_session),
@@ -338,9 +368,10 @@ def complete_feeding(
         raise HTTPException(status_code=404, detail="No feed in progress")
 
     config = get_or_create_config(session)
+    ng = _resolve_ng_amount(config, ng_amount)
     try:
         feeding = feeding_service.complete_feeding(
-            session, config, feeding_start, timestamp, po_amount, ng_amount, notes, is_snack
+            session, config, feeding_start, timestamp, po_amount, ng, notes, is_snack
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -375,6 +406,7 @@ def feeding_row(
             "feeding": feeding,
             "gap": gap,
             "effective_target": effective_target,
+            "tracking_mode": config.tracking_mode,
             "now": datetime.now(),
         },
     )
@@ -388,6 +420,7 @@ def edit_feeding_form(
     _: Optional[str] = Depends(require_auth),
 ):
     feeding = get_feeding_or_404(session, feeding_id)
+    config = get_or_create_config(session)
     template = (
         "partials/feeding_edit_card.html"
         if _hx_target_is_card(request)
@@ -395,7 +428,11 @@ def edit_feeding_form(
     )
     return templates.TemplateResponse(
         template,
-        {"request": request, "feeding": feeding},
+        {
+            "request": request,
+            "feeding": feeding,
+            "tracking_mode": config.tracking_mode,
+        },
     )
 
 
@@ -405,7 +442,7 @@ def update_feeding(
     feeding_id: int,
     timestamp: datetime = Form(...),
     po_amount: int = Form(...),
-    ng_amount: int = Form(...),
+    ng_amount: Optional[int] = Form(None),
     notes: Optional[str] = Form(None),
     is_snack: bool = Form(False),
     session: Session = Depends(get_session),
@@ -413,9 +450,10 @@ def update_feeding(
 ):
     feeding = get_feeding_or_404(session, feeding_id)
     config = get_or_create_config(session)
+    ng = _resolve_ng_amount(config, ng_amount, existing=feeding)
     try:
         feeding = feeding_service.update_feeding(
-            session, config, feeding, timestamp, po_amount, ng_amount, notes, is_snack
+            session, config, feeding, timestamp, po_amount, ng, notes, is_snack
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -435,6 +473,7 @@ def update_feeding(
             "feeding": feeding,
             "gap": gap,
             "effective_target": effective_target,
+            "tracking_mode": config.tracking_mode,
             "now": datetime.now(),
         },
     )
@@ -461,6 +500,7 @@ def delete_feeding(
             "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
+            "tracking_mode": config.tracking_mode,
             "now": datetime.now(),
         },
     )
@@ -536,15 +576,20 @@ def update_settings(
     increment: int = Form(...),
     increment_day: str = Form(...),
     period_start_time: time = Form(...),
+    tracking_mode: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     _: Optional[str] = Depends(require_auth),
 ):
+    if tracking_mode is not None and tracking_mode not in TRACKING_MODES:
+        raise HTTPException(status_code=400, detail="Invalid tracking mode")
     config = get_or_create_config(session)
     config.start_date = start_date
     config.start_volume = start_volume
     config.increment = increment
     config.increment_day = increment_day
     config.period_start_time = period_start_time
+    if tracking_mode is not None:
+        config.tracking_mode = tracking_mode
     config.updated_at = datetime.utcnow()
     session.add(config)
     session.commit()

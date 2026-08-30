@@ -42,7 +42,11 @@ function initFeedingForm(form) {
   const poInput = form.querySelector('input[name="po_amount"]');
   const feedingIdInput = form.querySelector('input[name="feeding_id"]');
   const noteSpan = form.querySelector('.feed-interval-note');
-  if (!timestampInput || !totalInput || !ngInput || !poInput) return;
+  if (!timestampInput || !poInput) return;
+
+  // In oral-only mode the form has a single Amount field and no total/NG split.
+  const splitAmounts = Boolean(totalInput && ngInput);
+  const amountInput = splitAmounts ? totalInput : poInput;
 
   function updateIntervalNote(actualIntervalMinutes, intervalMinutes) {
     if (!noteSpan) return;
@@ -71,7 +75,7 @@ function initFeedingForm(form) {
       const data = await resp.json();
       const isEdit = feedingIdInput && feedingIdInput.value;
       if (!isEdit) {
-        totalInput.value = data.per_feed;
+        amountInput.value = data.per_feed;
       }
       updateIntervalNote(data.actual_interval_minutes, data.interval_minutes);
     } catch (err) {
@@ -97,15 +101,17 @@ function initFeedingForm(form) {
   }
 
   timestampInput.addEventListener('change', updateTotalFromDate);
-  ngInput.addEventListener('input', function () {
-    updateOtherAmount(ngInput, poInput);
-  });
-  poInput.addEventListener('input', function () {
-    updateOtherAmount(poInput, ngInput);
-  });
-  totalInput.addEventListener('input', function () {
-    updateOtherAmount(ngInput, poInput);
-  });
+  if (splitAmounts) {
+    ngInput.addEventListener('input', function () {
+      updateOtherAmount(ngInput, poInput);
+    });
+    poInput.addEventListener('input', function () {
+      updateOtherAmount(poInput, ngInput);
+    });
+    totalInput.addEventListener('input', function () {
+      updateOtherAmount(ngInput, poInput);
+    });
+  }
 
   updateTotalFromDate();
 }

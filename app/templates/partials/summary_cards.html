@@ -11,27 +11,45 @@
       {% endif %}
     </div>
   </div>
-  {% if summary.trend_variance is not none %}
+  {% if summary.trend_variance is not none or summary.trend_variance_yesterday is not none %}
   <div class="summary-card">
     <div class="summary-label">Trend</div>
-    <div class="summary-value {{ summary.trend_status_class }}">
-      {{ "%+d" | format(summary.trend_variance) }} ml
+    <div class="summary-value">
+      {% if summary.trend_variance_yesterday is not none %}
+      <div class="{{ summary.trend_status_class_yesterday }}">{{ "%+d" | format(summary.trend_variance_yesterday) }} ml</div>
+      <div class="summary-sub">vs yesterday</div>
+      {% endif %}
+      {% if summary.trend_variance is not none %}
+      <div class="{{ summary.trend_status_class }}">{{ "%+d" | format(summary.trend_variance) }} ml</div>
       <div class="summary-sub">vs 7-day avg</div>
+      {% endif %}
       {% if summary.trend_pace is not none %}
       <div class="summary-sub">On pace for {{ summary.trend_pace }} ml</div>
       {% endif %}
     </div>
   </div>
   {% endif %}
+  {% if summary.is_current %}
+  <div class="summary-card">
+    <div class="summary-label">Intake trend</div>
+    <div class="summary-value">
+      {% if summary.intake_trend is not none %}{{ "%+d" | format(summary.intake_trend) }} mL/day{% else %}—{% endif %}
+    </div>
+  </div>
+  {% endif %}
 
+  {% if tracking_mode != 'oral_only' or summary.ng %}
   <div class="summary-card">
     <div class="summary-label">PO / NG</div>
     <div class="summary-value">{{ summary.po }} / {{ summary.ng }} ml</div>
   </div>
+  {% endif %}
+  {% if tracking_mode != 'oral_only' %}
   <div class="summary-card">
     <div class="summary-label">PO Percentage</div>
     <div class="summary-value">{{ summary.po_pct }}%</div>
   </div>
+  {% endif %}
   {% if summary.time_since_last %}
   <div class="summary-card">
     <div class="summary-label">Since last feed</div>

@@ -6,6 +6,12 @@
         Time
         <input type="datetime-local" name="timestamp" value="{{ feeding.timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
       </label>
+      {% if tracking_mode == 'oral_only' and not feeding.ng_amount %}
+      <label>
+        Amount (ml)
+        <input type="number" name="po_amount" value="{{ feeding.po_amount }}" min="0" step="1" required>
+      </label>
+      {% else %}
       <label>
         Total
         <input type="number" name="per_feed_total" value="{{ feeding.po_amount + feeding.ng_amount }}" min="0" step="1">
@@ -18,6 +24,7 @@
         PO
         <input type="number" name="po_amount" value="{{ feeding.po_amount }}" min="0" step="1" required>
       </label>
+      {% endif %}
       <label>
         Notes
         <input type="text" name="notes" value="{{ feeding.notes or '' }}" placeholder="Notes">

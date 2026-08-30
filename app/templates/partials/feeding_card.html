@@ -13,8 +13,10 @@
     </div>
     <div class="feeding-card-badges">
       {% if feeding.is_snack %}<span class="badge badge-snack">Snack</span>{% endif %}
+      {% if tracking_mode != 'oral_only' or feeding.ng_amount %}
       <span class="badge badge-po">PO {{ feeding.po_amount }}ml</span>
       <span class="badge badge-ng">NG {{ feeding.ng_amount }}ml</span>
+      {% endif %}
       <span class="badge badge-total">Total {{ total }}ml</span>
     </div>
     <button type="button" class="feeding-card-toggle" aria-label="Toggle details" aria-expanded="false">▼</button>
@@ -30,10 +32,12 @@
         {% else %}—{% endif %}
       </span>
     </div>
+    {% if tracking_mode != 'oral_only' %}
     <div class="feeding-card-detail">
       <span class="feeding-card-detail-label">PO %</span>
       <span class="feeding-card-detail-value">{% if total > 0 %}{{ (feeding.po_amount / total * 100) | round(1) }}%{% else %}—{% endif %}</span>
     </div>
+    {% endif %}
     <div class="feeding-card-detail">
       <span class="feeding-card-detail-label">Gap</span>
       <span class="feeding-card-detail-value">{% if gap %}{{ gap | format_duration }}{% else %}—{% endif %}</span>

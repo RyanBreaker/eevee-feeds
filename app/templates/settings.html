@@ -141,6 +141,13 @@
         Period Start Time
         <input type="time" name="period_start_time" value="{{ config.period_start_time.strftime('%H:%M') }}" required>
       </label>
+      <label>
+        Tracking Mode
+        <select name="tracking_mode" required>
+          <option value="ng_plus_po" {% if config.tracking_mode == 'ng_plus_po' %}selected{% endif %}>NG + PO</option>
+          <option value="oral_only" {% if config.tracking_mode == 'oral_only' %}selected{% endif %}>Oral only</option>
+        </select>
+      </label>
     </div>
     <button type="submit">Save Settings</button>
   </form>

@@ -7,6 +7,13 @@
         Time
         <input type="datetime-local" name="timestamp" value="{{ feeding_start.timestamp.strftime('%Y-%m-%dT%H:%M') }}" required>
       </label>
+      {% if tracking_mode == 'oral_only' %}
+      <label>
+        Amount (ml)
+        <input type="number" name="po_amount" min="0" step="1" required>
+        <span class="feed-interval-note"></span>
+      </label>
+      {% else %}
       <label>
         Total per feed (ml)
         <input type="number" name="per_feed_total" min="0" step="1">
@@ -20,6 +27,7 @@
         PO / by mouth (ml)
         <input type="number" name="po_amount" min="0" step="1" required>
       </label>
+      {% endif %}
       <label>
         Notes
         <input type="text" name="notes" placeholder="Optional">

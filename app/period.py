@@ -96,21 +96,42 @@ def format_time(dt: datetime) -> str:
     return f"{hour_12}:{dt.strftime('%M')}{am_pm}"
 
 
+def _linear_regression(
+    xs: Sequence[float], ys: Sequence[float]
+) -> tuple[float, float]:
+    """Return (slope, intercept) of the least-squares fit of ys onto xs."""
+    n = len(xs)
+    if n == 0:
+        return 0.0, 0.0
+    sum_x = sum(xs)
+    sum_y = sum(ys)
+    sum_xy = sum(x * y for x, y in zip(xs, ys))
+    sum_x2 = sum(x * x for x in xs)
+    denominator = n * sum_x2 - sum_x * sum_x
+    if denominator == 0:
+        return 0.0, sum_y / n
+    slope = (n * sum_xy - sum_x * sum_y) / denominator
+    intercept = (sum_y - slope * sum_x) / n
+    return slope, intercept
+
+
 def linear_trend(values: Sequence[float]) -> list[float]:
     n = len(values)
     if n == 0:
         return []
-    x = list(range(n))
-    sum_x = sum(x)
-    sum_y = sum(values)
-    sum_xy = sum(xi * yi for xi, yi in zip(x, values))
-    sum_x2 = sum(xi * xi for xi in x)
-    denominator = n * sum_x2 - sum_x * sum_x
-    if denominator == 0:
-        return [sum_y / n] * n
-    slope = (n * sum_xy - sum_x * sum_y) / denominator
-    intercept = (sum_y - slope * sum_x) / n
-    return [slope * xi + intercept for xi in x]
+    slope, intercept = _linear_regression(list(range(n)), values)
+    return [slope * x + intercept for x in range(n)]
+
+
+def linear_trend_slope_at(xs: Sequence[float], ys: Sequence[float]) -> float:
+    """Return the per-x-unit slope of the linear fit of ys onto xs."""
+    return _linear_regression(xs, ys)[0]
+
+
+def linear_trend_fitted_at(xs: Sequence[float], ys: Sequence[float]) -> list[float]:
+    """Return the fitted trend values at each x in xs."""
+    slope, intercept = _linear_regression(xs, ys)
+    return [slope * x + intercept for x in xs]
 
 
 def format_duration(td: timedelta) -> str:

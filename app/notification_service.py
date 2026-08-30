@@ -12,6 +12,7 @@ from app.repository import (
     get_feeding_start,
     get_feeding_start_reminder_thresholds,
     get_last_feeding,
+    get_or_create_config,
     record_feeding_start_reminder_sent,
 )
 
@@ -54,7 +55,14 @@ class NotificationService:
             )
         return DEFAULT_THRESHOLDS
 
-    def body_for_feeding(self, feeding: Feeding) -> str:
+    def body_for_feeding(
+        self, feeding: Feeding, tracking_mode: str = "ng_plus_po"
+    ) -> str:
+        if tracking_mode == "oral_only" and feeding.ng_amount == 0:
+            return (
+                f"Last feeding: {feeding.po_amount} ml "
+                f"at {feeding.timestamp.strftime('%I:%M %p')}."
+            )
         return (
             f"Last feeding: PO {feeding.po_amount} ml / NG {feeding.ng_amount} ml "
             f"at {feeding.timestamp.strftime('%I:%M %p')}."
@@ -104,12 +112,13 @@ class NotificationService:
         feeding: Feeding,
         since: timedelta,
         crossed_thresholds: List[int],
+        tracking_mode: str = "ng_plus_po",
     ) -> bool:
         if not client or not self.topic:
             return False
 
         title = f"🍼 {format_duration(since)} since last feed"
-        body = self.body_for_feeding(feeding)
+        body = self.body_for_feeding(feeding, tracking_mode=tracking_mode)
         priority = self.priority(crossed_thresholds)
         payload = self.build_payload(title, body, priority)
         url = f"{self.server}/"
@@ -221,11 +230,15 @@ class NotificationService:
         now = datetime.now()
         gap = now - last_feeding.timestamp
         crossed = [t for t in self.thresholds if gap >= timedelta(hours=t)]
+        tracking_mode = get_or_create_config(session).tracking_mode
         if client is None:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                return await self._send_notification_for(client, last_feeding, gap, crossed)
-        return await self._send_notification_for(client, last_feeding, gap, crossed)
-
+                return await self._send_notification_for(
+                    client, last_feeding, gap, crossed, tracking_mode
+                )
+        return await self._send_notification_for(
+            client, last_feeding, gap, crossed, tracking_mode
+        )
     async def run_check_start_reminders(
         self,
         session: Session,
@@ -289,6 +302,7 @@ class NotificationService:
             return
         assert last_feeding.id is not None
 
+        tracking_mode = get_or_create_config(session).tracking_mode
         for threshold in self.thresholds:
             threshold_time = last_feeding.timestamp + timedelta(hours=threshold)
             if app_start_time and threshold_time < app_start_time:
@@ -303,6 +317,7 @@ class NotificationService:
                 last_feeding,
                 timedelta(hours=threshold),
                 [threshold],
+                tracking_mode,
             )
             if ok:
                 self._record_sent(session, last_feeding.id, threshold)

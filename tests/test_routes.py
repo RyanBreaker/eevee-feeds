@@ -1044,6 +1044,230 @@ def test_settings_page_defaults_period_start_time_to_6am(client):
     assert 'name="period_start_time" value="06:00"' in r.text
 
 
+def test_default_tracking_mode_is_ng_plus_po(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+    assert config.tracking_mode == "ng_plus_po"
+
+
+def test_update_settings_persists_tracking_mode(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    r = client.post(
+        "/settings",
+        data={
+            "start_date": "2026-07-03",
+            "start_volume": "520",
+            "increment": "40",
+            "increment_day": "Wednesday",
+            "period_start_time": "06:00",
+            "tracking_mode": "oral_only",
+        },
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+    assert config.tracking_mode == "oral_only"
+
+
+def test_settings_page_renders_saved_tracking_mode(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+        config.tracking_mode = "oral_only"
+        session.add(config)
+        session.commit()
+
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert 'option value="oral_only" selected' in r.text
+
+
+def _set_tracking_mode(client, mode):
+    client.post(
+        "/settings",
+        data={
+            "start_date": "2026-07-03",
+            "start_volume": "520",
+            "increment": "40",
+            "increment_day": "Wednesday",
+            "period_start_time": "06:00",
+            "tracking_mode": mode,
+        },
+    )
+
+
+def test_oral_mode_complete_form_omits_ng_field(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    _set_tracking_mode(client, "oral_only")
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T11:00"})
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'name="ng_amount"' not in r.text
+    assert "Amount (ml)" in r.text
+
+
+def test_ng_mode_complete_form_keeps_ng_field(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T11:00"})
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'name="ng_amount"' in r.text
+
+
+def test_oral_mode_complete_feeding_records_zero_ng(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    _set_tracking_mode(client, "oral_only")
+    client.post("/feedings/start", data={"timestamp": "2026-07-09T11:00"})
+
+    r = client.post(
+        "/feedings/complete",
+        data={"timestamp": "2026-07-09T12:00", "po_amount": "85"},
+    )
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        feeding = session.get(Feeding, 1)
+    assert feeding.po_amount == 85
+    assert feeding.ng_amount == 0
+
+
+def test_oral_mode_create_feeding_records_zero_ng(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    _set_tracking_mode(client, "oral_only")
+
+    r = client.post(
+        "/feedings",
+        data={"timestamp": "2026-07-09T12:00", "po_amount": "85"},
+    )
+    assert r.status_code == 200
+
+    with Session(test_engine) as session:
+        feeding = session.get(Feeding, 1)
+    assert feeding.po_amount == 85
+    assert feeding.ng_amount == 0
+
+
+def test_oral_mode_feeding_list_shows_single_volume_and_no_po_pct(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    _set_tracking_mode(client, "oral_only")
+    client.post(
+        "/feedings",
+        data={"timestamp": "2026-07-09T12:00", "po_amount": "85"},
+    )
+
+    r = client.get("/?period=2026-07-09")
+    assert r.status_code == 200
+    assert "<th>PO</th>" not in r.text
+    assert "<th>NG</th>" not in r.text
+    assert "<th>PO %</th>" not in r.text
+    assert "85 ml" in r.text
+
+
+def test_oral_mode_ng_era_feeding_still_shows_breakdown(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    _set_tracking_mode(client, "oral_only")
+    with Session(test_engine) as session:
+        session.add(
+            Feeding(
+                timestamp=datetime(2026, 7, 9, 12, 0), po_amount=30, ng_amount=10
+            )
+        )
+        session.commit()
+
+    r = client.get("/?period=2026-07-09")
+    assert r.status_code == 200
+    assert "PO 30 ml" in r.text
+    assert "NG 10 ml" in r.text
+
+
+def test_oral_mode_summary_omits_po_percentage_card(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    _set_tracking_mode(client, "oral_only")
+    now = datetime.now().replace(second=0, microsecond=0)
+    client.post(
+        "/feedings",
+        data={"timestamp": now.strftime("%Y-%m-%dT%H:%M"), "po_amount": "85"},
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "PO Percentage" not in r.text
+    assert "PO / NG" not in r.text
+    assert "Intake trend" in r.text
+
+
+def test_ng_mode_summary_keeps_po_percentage_card_and_intake_trend(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    now = datetime.now().replace(second=0, microsecond=0)
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": now.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "30",
+            "ng_amount": "10",
+        },
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "PO Percentage" in r.text
+    assert "PO / NG" in r.text
+    assert "Intake trend" in r.text
+
+
+def test_trend_card_shows_vs_yesterday(client, test_engine):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    now = datetime.now().replace(second=0, microsecond=0)
+    with Session(test_engine) as session:
+        session.add(
+            Feeding(
+                timestamp=now - timedelta(days=1), po_amount=60, ng_amount=0
+            )
+        )
+        session.commit()
+    client.post(
+        "/feedings",
+        data={
+            "timestamp": now.strftime("%Y-%m-%dT%H:%M"),
+            "po_amount": "100",
+            "ng_amount": "0",
+        },
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "vs yesterday" in r.text
+    assert "+40 ml" in r.text
+
+
+def test_oral_mode_chart_omits_po_pct_and_adds_intake_trend(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+    _set_tracking_mode(client, "oral_only")
+    client.post(
+        "/feedings",
+        data={"timestamp": "2026-07-09T12:00", "po_amount": "85"},
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "d.po_pct" not in r.text
+    assert "d.intake_trend_line" in r.text
+
+
+def test_ng_mode_chart_keeps_po_pct(client):
+    client.post("/login", data={"username": "admin", "password": "secret"})
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "d.po_pct" in r.text
+    assert "d.intake_trend_line" not in r.text
+
+
 def test_update_settings_persists_period_start_time(client, test_engine):
     client.post("/login", data={"username": "admin", "password": "secret"})
     r = client.post(

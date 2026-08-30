@@ -40,88 +40,108 @@
 <script>
   const ctx = document.getElementById('historyChart').getContext('2d');
   const chartData = {{ chart_data | tojson }};
+  const datasets = [
+    {
+      label: 'Total Volume (ml)',
+      data: chartData.map(d => d.total),
+      backgroundColor: 'rgba(54, 162, 235, 0.5)',
+      yAxisID: 'y',
+    },
+    {
+      label: 'Target (ml)',
+      data: chartData.map(d => d.target),
+      type: 'line',
+      borderColor: 'rgba(255, 99, 132, 0.8)',
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: false,
+      yAxisID: 'y',
+    },
+  ];
+  const scales = {
+    x: {
+      stacked: true,
+    },
+    y: {
+      beginAtZero: true,
+      title: { display: true, text: 'ml' }
+    },
+    y2: {
+      position: 'right',
+      beginAtZero: true,
+      stacked: true,
+      grid: { drawOnChartArea: false },
+      ticks: { stepSize: 1, precision: 0 },
+      title: { display: true, text: 'count' }
+    }
+  };
+  {% if tracking_mode == 'oral_only' %}
+  datasets.push({
+    label: 'Intake trend (ml)',
+    data: chartData.map(d => d.intake_trend_line),
+    type: 'line',
+    borderColor: 'rgba(153, 102, 255, 1)',
+    borderWidth: 2,
+    borderDash: [5, 5],
+    pointRadius: 0,
+    fill: false,
+    yAxisID: 'y',
+  });
+  {% else %}
+  datasets.push(
+    {
+      label: 'PO %',
+      data: chartData.map(d => d.po_pct),
+      type: 'line',
+      borderColor: 'rgba(75, 192, 192, 1)',
+      borderWidth: 2,
+      yAxisID: 'y1',
+    },
+    {
+      label: 'PO % Trend',
+      data: chartData.map(d => d.po_trend),
+      type: 'line',
+      borderColor: 'rgba(153, 102, 255, 1)',
+      borderWidth: 2,
+      borderDash: [5, 5],
+      pointRadius: 0,
+      fill: false,
+      yAxisID: 'y1',
+    },
+  );
+  scales.y1 = {
+    position: 'right',
+    beginAtZero: true,
+    max: 100,
+    title: { display: true, text: '%' }
+  };
+  {% endif %}
+  datasets.push(
+    {
+      label: 'Regular Feedings',
+      data: chartData.map(d => d.regular_count),
+      backgroundColor: 'rgba(100, 116, 139, 0.7)',
+      yAxisID: 'y2',
+      stack: 'counts',
+    },
+    {
+      label: 'Snacks',
+      data: chartData.map(d => d.snack_count),
+      backgroundColor: 'rgba(245, 158, 11, 0.7)',
+      yAxisID: 'y2',
+      stack: 'counts',
+    },
+  );
   const historyChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: chartData.map(d => d.label),
-      datasets: [
-        {
-          label: 'Total Volume (ml)',
-          data: chartData.map(d => d.total),
-          backgroundColor: 'rgba(54, 162, 235, 0.5)',
-          yAxisID: 'y',
-        },
-        {
-          label: 'Target (ml)',
-          data: chartData.map(d => d.target),
-          type: 'line',
-          borderColor: 'rgba(255, 99, 132, 0.8)',
-          borderWidth: 2,
-          pointRadius: 0,
-          fill: false,
-          yAxisID: 'y',
-        },
-        {
-          label: 'PO %',
-          data: chartData.map(d => d.po_pct),
-          type: 'line',
-          borderColor: 'rgba(75, 192, 192, 1)',
-          borderWidth: 2,
-          yAxisID: 'y1',
-        },
-        {
-          label: 'PO % Trend',
-          data: chartData.map(d => d.po_trend),
-          type: 'line',
-          borderColor: 'rgba(153, 102, 255, 1)',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          pointRadius: 0,
-          fill: false,
-          yAxisID: 'y1',
-        },
-        {
-          label: 'Regular Feedings',
-          data: chartData.map(d => d.regular_count),
-          backgroundColor: 'rgba(100, 116, 139, 0.7)',
-          yAxisID: 'y2',
-          stack: 'counts',
-        },
-        {
-          label: 'Snacks',
-          data: chartData.map(d => d.snack_count),
-          backgroundColor: 'rgba(245, 158, 11, 0.7)',
-          yAxisID: 'y2',
-          stack: 'counts',
-        }
-      ]
+      datasets: datasets,
     },
     options: {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
-      scales: {
-        x: {
-          stacked: true,
-        },
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: 'ml' }
-        },
-        y1: {
-          position: 'right',
-          beginAtZero: true,
-          max: 100,
-          title: { display: true, text: '%' }
-        },
-        y2: {
-          position: 'right',
-          beginAtZero: true,
-          stacked: true,
-          grid: { drawOnChartArea: false },
-          ticks: { stepSize: 1, precision: 0 },
-          title: { display: true, text: 'count' }
-        }
-      }
+      scales: scales,
     }
   });
 

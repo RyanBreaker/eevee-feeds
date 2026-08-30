@@ -24,6 +24,11 @@ class FeedingStart(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+TRACKING_MODE_NG_PLUS_PO = "ng_plus_po"
+TRACKING_MODE_ORAL_ONLY = "oral_only"
+TRACKING_MODES = (TRACKING_MODE_NG_PLUS_PO, TRACKING_MODE_ORAL_ONLY)
+
+
 class TargetConfig(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     start_date: date
@@ -31,6 +36,7 @@ class TargetConfig(SQLModel, table=True):
     increment: int
     increment_day: str = "Wednesday"
     period_start_time: time = Field(default=time(6, 0))
+    tracking_mode: str = Field(default=TRACKING_MODE_NG_PLUS_PO)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

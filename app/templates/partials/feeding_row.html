@@ -6,9 +6,19 @@
   </td>
   {% set total = feeding.po_amount + feeding.ng_amount %}
   {% set target = effective_target if effective_target is defined else (feeding.effective_target if feeding.effective_target is defined else feeding.target_per_feed) %}
+  {% if tracking_mode == 'oral_only' %}
+  <td>
+    {% if feeding.ng_amount %}
+    PO {{ feeding.po_amount }} ml / NG {{ feeding.ng_amount }} ml ({{ total }} ml)
+    {% else %}
+    {{ total }} ml
+    {% endif %}
+  </td>
+  {% else %}
   <td>{{ feeding.po_amount }} ml</td>
   <td>{{ feeding.ng_amount }} ml</td>
   <td>{{ total }} ml</td>
+  {% endif %}
   <td>
     {% if target is not none %}
       {{ target }} ml
@@ -16,7 +26,9 @@
       <span class="feed-variance {% if variance > 0 %}over{% elif variance < 0 %}under{% endif %}">{{ "%+d" | format(variance) }} ml</span>
     {% else %}—{% endif %}
   </td>
+  {% if tracking_mode != 'oral_only' %}
   <td>{% if total > 0 %}{{ (feeding.po_amount / total * 100) | round(1) }}%{% else %}—{% endif %}</td>
+  {% endif %}
   <td>{% if gap %}{{ gap | format_duration }}{% else %}—{% endif %}</td>
   <td>{{ feeding.notes or "" }}</td>
   <td class="actions">

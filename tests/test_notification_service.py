@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from app.models import Feeding, FeedingStart, NotificationLog
 from app.notification_service import DEFAULT_THRESHOLDS, NotificationService
+from app.repository import get_or_create_config
 
 
 def make_service(**overrides):
@@ -46,6 +47,31 @@ def test_body_for_feeding():
     assert "PO 30 ml" in body
     assert "NG 10 ml" in body
     assert "12:00 PM" in body
+
+
+def test_body_for_feeding_oral_mode_omits_zero_ng():
+    service = make_service()
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 9, 12, 0),
+        po_amount=85,
+        ng_amount=0,
+    )
+    body = service.body_for_feeding(feeding, tracking_mode="oral_only")
+    assert "85 ml" in body
+    assert "NG" not in body
+    assert "12:00 PM" in body
+
+
+def test_body_for_feeding_oral_mode_keeps_breakdown_when_ng_nonzero():
+    service = make_service()
+    feeding = Feeding(
+        timestamp=datetime(2026, 7, 9, 12, 0),
+        po_amount=30,
+        ng_amount=10,
+    )
+    body = service.body_for_feeding(feeding, tracking_mode="oral_only")
+    assert "PO 30 ml" in body
+    assert "NG 10 ml" in body
 
 
 def test_priority():
@@ -172,6 +198,40 @@ async def test_run_check_sends_notification_when_threshold_crossed(test_engine):
         ).all()
         assert len(logs) == 3
         assert {log.threshold_hours for log in logs} == {2, 3, 4}
+
+
+@pytest.mark.asyncio
+async def test_run_check_oral_mode_omits_zero_ng_in_body(test_engine):
+    captured = []
+
+    def handler(request: httpx.Request):
+        captured.append({"content": request.content})
+        return httpx.Response(200, text="ok")
+
+    now = datetime(2026, 7, 10, 12, 0)
+    with Session(test_engine) as session:
+        config = get_or_create_config(session)
+        config.tracking_mode = "oral_only"
+        session.add(config)
+        session.add(
+            Feeding(
+                timestamp=now - timedelta(hours=5),
+                po_amount=85,
+                ng_amount=0,
+            )
+        )
+        session.commit()
+
+    service = make_service()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with Session(test_engine) as session:
+        await service.run_check(session, client, now=now)
+
+    assert len(captured) == 3
+    data = json.loads(captured[-1]["content"])
+    assert "85 ml" in data["message"]
+    assert "NG" not in data["message"]
 
 
 @pytest.mark.asyncio
