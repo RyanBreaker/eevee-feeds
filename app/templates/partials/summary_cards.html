@@ -2,12 +2,12 @@
   <div class="summary-card">
     <div class="summary-label">Total / Target</div>
     <div class="summary-value">
-      {{ summary.total }} / {{ summary.target }} ml
+      {{ summary.total }} / {{ summary.target }} mL
       <div class="progress-bar" aria-label="Progress toward daily target: {{ summary.target_progress_pct }}%">
         <div class="progress-fill {{ summary.target_status_class }}" style="width: {{ summary.target_progress_pct }}%"></div>
       </div>
       {% if summary.target > 0 %}
-      <div class="summary-sub {{ summary.target_status_class }}">{{ "%+d" | format(summary.target_variance) }} ml</div>
+      <div class="summary-sub {{ summary.target_status_class }}">{{ "%+d" | format(summary.target_variance) }} mL</div>
       {% endif %}
     </div>
   </div>
@@ -16,15 +16,15 @@
     <div class="summary-label">Trend</div>
     <div class="summary-value">
       {% if summary.trend_variance_yesterday is not none %}
-      <div class="{{ summary.trend_status_class_yesterday }}">{{ "%+d" | format(summary.trend_variance_yesterday) }} ml</div>
+      <div class="{{ summary.trend_status_class_yesterday }}">{{ "%+d" | format(summary.trend_variance_yesterday) }} mL</div>
       <div class="summary-sub">vs yesterday</div>
       {% endif %}
       {% if summary.trend_variance is not none %}
-      <div class="{{ summary.trend_status_class }}">{{ "%+d" | format(summary.trend_variance) }} ml</div>
+      <div class="{{ summary.trend_status_class }}">{{ "%+d" | format(summary.trend_variance) }} mL</div>
       <div class="summary-sub">vs 7-day avg</div>
       {% endif %}
       {% if summary.trend_pace is not none %}
-      <div class="summary-sub">On pace for {{ summary.trend_pace }} ml</div>
+      <div class="summary-sub">On pace for {{ summary.trend_pace }} mL</div>
       {% endif %}
     </div>
   </div>
@@ -40,9 +40,9 @@
     <div class="summary-label">7-day averages</div>
     <div class="summary-value">
       {% if summary.avg_daily_intake is not none %}
-      <div>{{ summary.avg_daily_intake }} ml</div>
+      <div>{{ summary.avg_daily_intake }} mL</div>
       <div class="summary-sub">avg daily intake</div>
-      <div>{{ summary.avg_feed_quantity }} ml</div>
+      <div>{{ summary.avg_feed_quantity }} mL</div>
       <div class="summary-sub">avg feed quantity</div>
       <div>{{ summary.avg_feeds_per_day }}</div>
       <div class="summary-sub">avg feeds/day</div>
@@ -54,7 +54,7 @@
   {% if tracking_mode != 'oral_only' or summary.ng %}
   <div class="summary-card">
     <div class="summary-label">PO / NG</div>
-    <div class="summary-value">{{ summary.po }} / {{ summary.ng }} ml</div>
+    <div class="summary-value">{{ summary.po }} / {{ summary.ng }} mL</div>
   </div>
   {% endif %}
   {% if tracking_mode != 'oral_only' %}

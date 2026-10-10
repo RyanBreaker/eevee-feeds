@@ -183,10 +183,10 @@ def test_update_feeding_renders_table_row(client, test_engine):
     )
     assert r.status_code == 200
     assert f'<tr id="feeding-{feeding_id}">' in r.text
-    assert "45 ml" in r.text
-    assert "25 ml" in r.text
-    assert "70 ml" in r.text
-    assert "+0 ml" in r.text
+    assert "45 mL" in r.text
+    assert "25 mL" in r.text
+    assert "70 mL" in r.text
+    assert "+0 mL" in r.text
     assert "after edit" in r.text
     assert "inline-form" not in r.text
     assert r.headers.get("HX-Trigger") == "feeding-updated"
@@ -285,9 +285,9 @@ def test_feeding_row_shows_variance_when_over_target(client, test_engine):
 
     r = client.get(f"/feedings/{feeding_id}")
     assert r.status_code == 200
-    assert "90 ml" in r.text
-    assert "70 ml" in r.text
-    assert "+20 ml" in r.text
+    assert "90 mL" in r.text
+    assert "70 mL" in r.text
+    assert "+20 mL" in r.text
     assert "feed-variance over" in r.text
 
 
@@ -307,9 +307,9 @@ def test_feeding_row_infers_target_when_not_stored(client, test_engine):
 
     r = client.get(f"/feedings/{feeding_id}")
     assert r.status_code == 200
-    assert "40 ml" in r.text
-    assert "70 ml" in r.text
-    assert "-30 ml" in r.text
+    assert "40 mL" in r.text
+    assert "70 mL" in r.text
+    assert "-30 mL" in r.text
     assert "feed-variance under" in r.text
 
 
@@ -330,7 +330,7 @@ def test_summary_cards_route(client, test_engine):
     assert r.status_code == 200
     assert 'id="summary-cards"' in r.text
     assert "30 /" in r.text
-    assert "10 ml" in r.text
+    assert "10 mL" in r.text
 
 
 def test_summary_cards_show_vs_target_when_targets_present(client, test_engine):
@@ -353,8 +353,8 @@ def test_summary_cards_show_vs_target_when_targets_present(client, test_engine):
     r = client.get("/summary-cards")
     assert r.status_code == 200
     assert "Total / Target" in r.text
-    assert "90 / 100 ml" in r.text
-    assert "-10 ml" in r.text
+    assert "90 / 100 mL" in r.text
+    assert "-10 mL" in r.text
     assert 'class="progress-bar"' in r.text
     assert "target-status-green" in r.text
     assert 'style="width: 90%"' in r.text
@@ -377,7 +377,7 @@ def test_summary_cards_show_trend_when_history_present(client, test_engine):
                 ng_amount=0,
             )
         )
-        # Three past days with 50 ml at same time of day
+        # Three past days with 50 mL at same time of day
         for day_offset in range(1, 4):
             past_time = (
                 current_period_start - timedelta(days=day_offset) + timedelta(hours=1)
@@ -488,9 +488,9 @@ def test_mobile_feeding_cards_render_feeding_data(client):
     response = client.get("/")
     assert response.status_code == 200
     assert 'class="badge badge-po"' in response.text
-    assert "PO 30ml" in response.text
-    assert "NG 10ml" in response.text
-    assert "Total 40ml" in response.text
+    assert "PO 30mL" in response.text
+    assert "NG 10mL" in response.text
+    assert "Total 40mL" in response.text
     assert "via tube" in response.text
     assert 'class="feeding-card-actions"' in response.text
 
@@ -757,7 +757,7 @@ def test_start_feed_target_without_previous_feeding(client):
     client.post("/login", data={"username": "admin", "password": "secret"})
     r = client.get("/feedings/start-target?timestamp=2026-07-03T08:00")
     assert r.status_code == 200
-    assert "65 ml" in r.text
+    assert "65 mL" in r.text
     assert "no previous feed" in r.text
 
 
@@ -774,7 +774,7 @@ def test_start_feed_target_with_previous_feeding(client, test_engine):
 
     r = client.get("/feedings/start-target?timestamp=2026-07-09T12:00")
     assert r.status_code == 200
-    assert "70 ml" in r.text
+    assert "70 mL" in r.text
     assert "3h 0m after last feed" in r.text
 
 
@@ -1107,7 +1107,7 @@ def test_oral_mode_complete_form_omits_ng_field(client):
     r = client.get("/")
     assert r.status_code == 200
     assert 'name="ng_amount"' not in r.text
-    assert "Amount (ml)" in r.text
+    assert "Amount (mL)" in r.text
 
 
 def test_ng_mode_complete_form_keeps_ng_field(client):
@@ -1165,7 +1165,7 @@ def test_oral_mode_feeding_list_shows_single_volume_and_no_po_pct(client):
     assert "<th>PO</th>" not in r.text
     assert "<th>NG</th>" not in r.text
     assert "<th>PO %</th>" not in r.text
-    assert "85 ml" in r.text
+    assert "85 mL" in r.text
 
 
 def test_oral_mode_ng_era_feeding_still_shows_breakdown(client, test_engine):
@@ -1181,8 +1181,8 @@ def test_oral_mode_ng_era_feeding_still_shows_breakdown(client, test_engine):
 
     r = client.get("/?period=2026-07-09")
     assert r.status_code == 200
-    assert "PO 30 ml" in r.text
-    assert "NG 10 ml" in r.text
+    assert "PO 30 mL" in r.text
+    assert "NG 10 mL" in r.text
 
 
 def test_oral_mode_summary_omits_po_percentage_card(client):
@@ -1242,7 +1242,7 @@ def test_trend_card_shows_vs_yesterday(client, test_engine):
     r = client.get("/")
     assert r.status_code == 200
     assert "vs yesterday" in r.text
-    assert "+40 ml" in r.text
+    assert "+40 mL" in r.text
 
 
 def test_oral_mode_chart_omits_po_pct_and_adds_intake_trend(client):
@@ -1557,9 +1557,9 @@ def test_feeding_row_returns_card_for_mobile_target(client, test_engine):
     )
     assert r.status_code == 200
     assert f'<div class="feeding-card" id="feeding-card-{feeding_id}">' in r.text
-    assert "PO 30ml" in r.text
-    assert "NG 10ml" in r.text
-    assert "Total 40ml" in r.text
+    assert "PO 30mL" in r.text
+    assert "NG 10mL" in r.text
+    assert "Total 40mL" in r.text
 
 
 def test_update_feeding_renders_card_for_mobile_target(client, test_engine):
@@ -1587,9 +1587,9 @@ def test_update_feeding_renders_card_for_mobile_target(client, test_engine):
     )
     assert r.status_code == 200
     assert f'<div class="feeding-card" id="feeding-card-{feeding_id}">' in r.text
-    assert "PO 45ml" in r.text
-    assert "NG 25ml" in r.text
-    assert "Total 70ml" in r.text
+    assert "PO 45mL" in r.text
+    assert "NG 25mL" in r.text
+    assert "Total 70mL" in r.text
     assert "after edit" in r.text
     assert r.headers.get("HX-Trigger") == "feeding-updated"
 

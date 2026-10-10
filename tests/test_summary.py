@@ -378,7 +378,7 @@ def test_get_period_summary_includes_trend_for_current_period(session, monkeypat
             ng_amount=0,
         )
     )
-    # Three past days with 50 ml before the same time of day
+    # Three past days with 50 mL before the same time of day
     for day_offset in range(1, 4):
         past_time = current_period_start - timedelta(days=day_offset) + timedelta(hours=1)
         session.add(
@@ -392,11 +392,11 @@ def test_get_period_summary_includes_trend_for_current_period(session, monkeypat
 
     summary = get_period_summary(session, config, current_period_start)
 
-    # Three past days at 50 ml plus four empty days in the 7-day window
+    # Three past days at 50 mL plus four empty days in the 7-day window
     expected_avg = (50 * 3) / 7
     assert summary["trend_variance"] == round(100 - expected_avg)
     assert summary["trend_status_class"] == "trend-status-green"
-    # Pace = 100 ml over 2h * 24h = 1200 ml
+    # Pace = 100 mL over 2h * 24h = 1200 mL
     assert summary["trend_pace"] == 1200
 
 
@@ -422,7 +422,7 @@ def test_get_period_summary_includes_vs_yesterday(session, monkeypatch):
 
     monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
 
-    # Today: 100 ml so far.
+    # Today: 100 mL so far.
     session.add(
         Feeding(
             timestamp=now - timedelta(minutes=30),
@@ -430,7 +430,7 @@ def test_get_period_summary_includes_vs_yesterday(session, monkeypatch):
             ng_amount=0,
         )
     )
-    # Yesterday: 60 ml before the same elapsed time, 40 ml after it.
+    # Yesterday: 60 mL before the same elapsed time, 40 mL after it.
     yesterday = current_period_start - timedelta(days=1)
     session.add_all(
         [
@@ -493,7 +493,7 @@ def test_get_period_summary_includes_intake_trend(session, monkeypatch):
 
     monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
 
-    # Three recent Periods with totals rising 10 ml/day: 100, 110, 120.
+    # Three recent Periods with totals rising 10 mL/day: 100, 110, 120.
     for day_offset, amount in [(3, 100), (2, 110), (1, 120)]:
         session.add(
             Feeding(
@@ -780,7 +780,7 @@ def test_get_period_summary_includes_seven_day_averages(session, monkeypatch):
 
     monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
 
-    # Day 1: two feedings totalling 100 ml; day 3: 50 ml; day 5: a 30 ml
+    # Day 1: two feedings totalling 100 mL; day 3: 50 mL; day 5: a 30 mL
     # snack (snacks count as feeds). Other days in the window are empty.
     session.add_all(
         [

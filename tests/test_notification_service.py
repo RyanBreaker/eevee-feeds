@@ -44,8 +44,8 @@ def test_body_for_feeding():
         ng_amount=10,
     )
     body = service.body_for_feeding(feeding)
-    assert "PO 30 ml" in body
-    assert "NG 10 ml" in body
+    assert "PO 30 mL" in body
+    assert "NG 10 mL" in body
     assert "12:00 PM" in body
 
 
@@ -57,7 +57,7 @@ def test_body_for_feeding_oral_mode_omits_zero_ng():
         ng_amount=0,
     )
     body = service.body_for_feeding(feeding, tracking_mode="oral_only")
-    assert "85 ml" in body
+    assert "85 mL" in body
     assert "NG" not in body
     assert "12:00 PM" in body
 
@@ -70,8 +70,8 @@ def test_body_for_feeding_oral_mode_keeps_breakdown_when_ng_nonzero():
         ng_amount=10,
     )
     body = service.body_for_feeding(feeding, tracking_mode="oral_only")
-    assert "PO 30 ml" in body
-    assert "NG 10 ml" in body
+    assert "PO 30 mL" in body
+    assert "NG 10 mL" in body
 
 
 def test_priority():
@@ -230,7 +230,7 @@ async def test_run_check_oral_mode_omits_zero_ng_in_body(test_engine):
 
     assert len(captured) == 3
     data = json.loads(captured[-1]["content"])
-    assert "85 ml" in data["message"]
+    assert "85 mL" in data["message"]
     assert "NG" not in data["message"]
 
 

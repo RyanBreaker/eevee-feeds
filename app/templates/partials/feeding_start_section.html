@@ -9,22 +9,22 @@
       </label>
       {% if tracking_mode == 'oral_only' %}
       <label>
-        Amount (ml)
+        Amount (mL)
         <input type="number" name="po_amount" min="0" step="1" required>
         <span class="feed-interval-note"></span>
       </label>
       {% else %}
       <label>
-        Total per feed (ml)
+        Total per feed (mL)
         <input type="number" name="per_feed_total" min="0" step="1">
         <span class="feed-interval-note"></span>
       </label>
       <label>
-        NG / by tube (ml)
+        NG / by tube (mL)
         <input type="number" name="ng_amount" min="0" step="1" required>
       </label>
       <label>
-        PO / by mouth (ml)
+        PO / by mouth (mL)
         <input type="number" name="po_amount" min="0" step="1" required>
       </label>
       {% endif %}

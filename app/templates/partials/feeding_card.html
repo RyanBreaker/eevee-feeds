@@ -14,10 +14,10 @@
     <div class="feeding-card-badges">
       {% if feeding.is_snack %}<span class="badge badge-snack">Snack</span>{% endif %}
       {% if tracking_mode != 'oral_only' or feeding.ng_amount %}
-      <span class="badge badge-po">PO {{ feeding.po_amount }}ml</span>
-      <span class="badge badge-ng">NG {{ feeding.ng_amount }}ml</span>
+      <span class="badge badge-po">PO {{ feeding.po_amount }}mL</span>
+      <span class="badge badge-ng">NG {{ feeding.ng_amount }}mL</span>
       {% endif %}
-      <span class="badge badge-total">Total {{ total }}ml</span>
+      <span class="badge badge-total">Total {{ total }}mL</span>
     </div>
     <button type="button" class="feeding-card-toggle" aria-label="Toggle details" aria-expanded="false">▼</button>
   </div>
@@ -26,9 +26,9 @@
       <span class="feeding-card-detail-label">Suggested</span>
       <span class="feeding-card-detail-value">
         {% if target is not none %}
-          {{ target }} ml
+          {{ target }} mL
           {% set variance = total - target %}
-          <span class="feed-variance {% if variance > 0 %}over{% elif variance < 0 %}under{% endif %}">{{ "%+d" | format(variance) }} ml</span>
+          <span class="feed-variance {% if variance > 0 %}over{% elif variance < 0 %}under{% endif %}">{{ "%+d" | format(variance) }} mL</span>
         {% else %}—{% endif %}
       </span>
     </div>

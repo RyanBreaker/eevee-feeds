@@ -9,21 +9,21 @@
   {% if tracking_mode == 'oral_only' %}
   <td>
     {% if feeding.ng_amount %}
-    PO {{ feeding.po_amount }} ml / NG {{ feeding.ng_amount }} ml ({{ total }} ml)
+    PO {{ feeding.po_amount }} mL / NG {{ feeding.ng_amount }} mL ({{ total }} mL)
     {% else %}
-    {{ total }} ml
+    {{ total }} mL
     {% endif %}
   </td>
   {% else %}
-  <td>{{ feeding.po_amount }} ml</td>
-  <td>{{ feeding.ng_amount }} ml</td>
-  <td>{{ total }} ml</td>
+  <td>{{ feeding.po_amount }} mL</td>
+  <td>{{ feeding.ng_amount }} mL</td>
+  <td>{{ total }} mL</td>
   {% endif %}
   <td>
     {% if target is not none %}
-      {{ target }} ml
+      {{ target }} mL
       {% set variance = total - target %}
-      <span class="feed-variance {% if variance > 0 %}over{% elif variance < 0 %}under{% endif %}">{{ "%+d" | format(variance) }} ml</span>
+      <span class="feed-variance {% if variance > 0 %}over{% elif variance < 0 %}under{% endif %}">{{ "%+d" | format(variance) }} mL</span>
     {% else %}—{% endif %}
   </td>
   {% if tracking_mode != 'oral_only' %}

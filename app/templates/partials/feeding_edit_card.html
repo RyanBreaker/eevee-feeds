@@ -8,7 +8,7 @@
       </label>
       {% if tracking_mode == 'oral_only' and not feeding.ng_amount %}
       <label>
-        Amount (ml)
+        Amount (mL)
         <input type="number" name="po_amount" value="{{ feeding.po_amount }}" min="0" step="1" required>
       </label>
       {% else %}

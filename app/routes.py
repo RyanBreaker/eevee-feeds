@@ -343,9 +343,9 @@ def start_feed_target(
         interval_text = format_duration(
             timedelta(minutes=feed_target_result.actual_interval_minutes)
         )
-        note = f"{per_feed} ml ({interval_text} after last feed)"
+        note = f"{per_feed} mL ({interval_text} after last feed)"
     else:
-        note = f"{per_feed} ml (no previous feed)"
+        note = f"{per_feed} mL (no previous feed)"
 
     return templates.TemplateResponse(
         request,

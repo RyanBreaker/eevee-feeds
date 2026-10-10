@@ -60,11 +60,11 @@ class NotificationService:
     ) -> str:
         if tracking_mode == "oral_only" and feeding.ng_amount == 0:
             return (
-                f"Last feeding: {feeding.po_amount} ml "
+                f"Last feeding: {feeding.po_amount} mL "
                 f"at {feeding.timestamp.strftime('%I:%M %p')}."
             )
         return (
-            f"Last feeding: PO {feeding.po_amount} ml / NG {feeding.ng_amount} ml "
+            f"Last feeding: PO {feeding.po_amount} mL / NG {feeding.ng_amount} mL "
             f"at {feeding.timestamp.strftime('%I:%M %p')}."
         )
 
