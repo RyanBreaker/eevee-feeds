@@ -60,3 +60,7 @@ _Avoid_: day-over-day diff, pace delta
 **Intake trend**:
 The linear-regression slope of daily total intake over the last 14 Periods, expressed in mL per day. Shown only when at least 3 of those Periods have Feedings; otherwise displayed as `—`. The slope figure is shown in both Tracking modes; the trend line on the chart is shown only in `oral_only` Tracking mode (where it replaces the PO percentage lines). Replaces PO percentage as the headline trend metric in `oral_only` mode.
 _Avoid_: volume trend, intake slope
+
+**7-day averages**:
+A group of three trailing statistics computed over the last 7 completed Periods (excluding the current in-progress Period): average daily intake (total intake across the 7 Periods ÷ 7, with Periods without Feedings counting as zero), average feed quantity (total volume ÷ total Feedings, Snacks included), and average feeds per day (total Feedings ÷ 7). Shown only when at least 3 of the 7 Periods have Feedings; otherwise all three are displayed as `—`.
+_Avoid_: weekly average, rolling average

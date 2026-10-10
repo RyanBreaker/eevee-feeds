@@ -769,3 +769,112 @@ def test_attach_effective_targets_snack_has_no_target(session):
 
     result = attach_effective_targets(session, config, [(feeding, None)])
     assert result[0][0].effective_target is None
+
+
+def test_get_period_summary_includes_seven_day_averages(session, monkeypatch):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    # Day 1: two feedings totalling 100 ml; day 3: 50 ml; day 5: a 30 ml
+    # snack (snacks count as feeds). Other days in the window are empty.
+    session.add_all(
+        [
+            Feeding(
+                timestamp=current_period_start - timedelta(days=1),
+                po_amount=40,
+                ng_amount=0,
+            ),
+            Feeding(
+                timestamp=current_period_start - timedelta(days=1, hours=-3),
+                po_amount=0,
+                ng_amount=60,
+            ),
+            Feeding(
+                timestamp=current_period_start - timedelta(days=3),
+                po_amount=50,
+                ng_amount=0,
+            ),
+            Feeding(
+                timestamp=current_period_start - timedelta(days=5),
+                po_amount=30,
+                ng_amount=0,
+                is_snack=True,
+            ),
+            # Current in-progress Period: excluded from the averages.
+            Feeding(
+                timestamp=now - timedelta(minutes=30),
+                po_amount=999,
+                ng_amount=0,
+            ),
+        ]
+    )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["avg_daily_intake"] == round(180 / 7)
+    assert summary["avg_feed_quantity"] == 45
+    assert summary["avg_feeds_per_day"] == round(4 / 7, 1)
+
+
+def test_get_period_summary_seven_day_averages_none_with_fewer_than_3_periods(
+    session, monkeypatch
+):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    for day_offset in (1, 2):
+        session.add(
+            Feeding(
+                timestamp=current_period_start - timedelta(days=day_offset),
+                po_amount=100,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(session, config, current_period_start)
+
+    assert summary["avg_daily_intake"] is None
+    assert summary["avg_feed_quantity"] is None
+    assert summary["avg_feeds_per_day"] is None
+
+
+def test_get_period_summary_seven_day_averages_omitted_for_past_period(
+    session, monkeypatch
+):
+    config = get_or_create_config(session)
+    current_period_start = get_current_period_start(time(6, 0))
+    now = current_period_start + timedelta(hours=2)
+
+    import app.summary
+
+    monkeypatch.setattr(app.summary, "datetime", _fake_now(now))
+
+    for day_offset in (1, 2, 3):
+        session.add(
+            Feeding(
+                timestamp=current_period_start - timedelta(days=day_offset),
+                po_amount=100,
+                ng_amount=0,
+            )
+        )
+    session.commit()
+
+    summary = get_period_summary(
+        session, config, current_period_start - timedelta(days=1)
+    )
+
+    assert summary["avg_daily_intake"] is None
+    assert summary["avg_feed_quantity"] is None
+    assert summary["avg_feeds_per_day"] is None
