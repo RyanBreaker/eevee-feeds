@@ -125,6 +125,35 @@ def _get_intake_trend(session: Session, config: TargetConfig) -> Optional[int]:
     return round(linear_trend_slope_at(days, totals))
 
 
+def _get_seven_day_averages(
+    session: Session, config: TargetConfig
+) -> Optional[tuple[int, int, float]]:
+    """Return 7-day averages over the last 7 completed Periods.
+
+    The tuple is (average daily intake, average feed quantity, average feeds
+    per day). Periods without Feedings count as zero intake. Returns None when
+    fewer than 3 of the 7 Periods have Feedings.
+    """
+    current_period = get_current_period_start(config.period_start_time)
+    total_volume = 0
+    total_feedings = 0
+    days_with_feedings = 0
+    for day_offset in range(1, 8):
+        start = current_period - timedelta(days=day_offset)
+        feedings = get_feedings_for_period(session, start)
+        if feedings:
+            days_with_feedings += 1
+            total_feedings += len(feedings)
+            total_volume += sum(f.po_amount + f.ng_amount for f in feedings)
+    if days_with_feedings < 3:
+        return None
+    return (
+        round(total_volume / 7),
+        round(total_volume / total_feedings),
+        round(total_feedings / 7, 1),
+    )
+
+
 def get_current_period_start(start_time: time) -> datetime:
     return get_period_start(datetime.now(), start_time)
 
@@ -177,6 +206,9 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
     trend_variance_yesterday = None
     trend_status_class_yesterday = ""
     intake_trend = None
+    avg_daily_intake = None
+    avg_feed_quantity = None
+    avg_feeds_per_day = None
     is_current = period_start == get_current_period_start(config.period_start_time)
     if is_current:
         now = datetime.now()
@@ -215,6 +247,11 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         if elapsed_hours >= 1 and total > 0:
             trend_pace = round(total / elapsed_hours * 24)
         intake_trend = _get_intake_trend(session, config)
+        seven_day_averages = _get_seven_day_averages(session, config)
+        if seven_day_averages is not None:
+            avg_daily_intake, avg_feed_quantity, avg_feeds_per_day = (
+                seven_day_averages
+            )
 
     return {
         "po": po,
@@ -240,6 +277,9 @@ def get_period_summary(session: Session, config: TargetConfig, period_start: dat
         "trend_variance_yesterday": trend_variance_yesterday,
         "trend_status_class_yesterday": trend_status_class_yesterday,
         "intake_trend": intake_trend,
+        "avg_daily_intake": avg_daily_intake,
+        "avg_feed_quantity": avg_feed_quantity,
+        "avg_feeds_per_day": avg_feeds_per_day,
         "is_current": is_current,
     }
 

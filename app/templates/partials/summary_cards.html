@@ -36,6 +36,19 @@
       {% if summary.intake_trend is not none %}{{ "%+d" | format(summary.intake_trend) }} mL/day{% else %}—{% endif %}
     </div>
   </div>
+  <div class="summary-card">
+    <div class="summary-label">7-day averages</div>
+    <div class="summary-value">
+      {% if summary.avg_daily_intake is not none %}
+      <div>{{ summary.avg_daily_intake }} ml</div>
+      <div class="summary-sub">avg daily intake</div>
+      <div>{{ summary.avg_feed_quantity }} ml</div>
+      <div class="summary-sub">avg feed quantity</div>
+      <div>{{ summary.avg_feeds_per_day }}</div>
+      <div class="summary-sub">avg feeds/day</div>
+      {% else %}—{% endif %}
+    </div>
+  </div>
   {% endif %}
 
   {% if tracking_mode != 'oral_only' or summary.ng %}
