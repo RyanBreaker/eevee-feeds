@@ -93,9 +93,9 @@ def _render_feeding_list(
 ) -> Response:
     summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
+        request,
         "partials/feeding_list.html",
         {
-            "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
             "tracking_mode": config.tracking_mode,
@@ -112,7 +112,7 @@ def health():
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: Optional[str] = None):
     return templates.TemplateResponse(
-        "login.html", {"request": request, "error": error}
+        request, "login.html", {"error": error}
     )
 
 
@@ -126,8 +126,9 @@ def login(
         request.session["user"] = username
         return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse(
+        request,
         "login.html",
-        {"request": request, "error": "Invalid username or password"},
+        {"error": "Invalid username or password"},
         status_code=401,
     )
 
@@ -168,9 +169,9 @@ def index(
     default_timestamp = _now_truncated()
 
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "summary": summary,
             "feedings": summary["feedings"],
             "chart_data": chart_data,
@@ -198,9 +199,9 @@ def summary_cards(
         session, config, get_current_period_start(config.period_start_time)
     )
     return templates.TemplateResponse(
+        request,
         "partials/summary_cards.html",
         {
-            "request": request,
             "summary": summary,
             "tracking_mode": config.tracking_mode,
         },
@@ -264,9 +265,9 @@ def _render_feeding_start_section(
 ) -> Response:
     config = get_or_create_config(session)
     return templates.TemplateResponse(
+        request,
         "partials/feeding_start_section.html",
         {
-            "request": request,
             "feeding_start": feeding_start,
             "tracking_mode": config.tracking_mode,
             "default_timestamp": _now_truncated(),
@@ -347,8 +348,9 @@ def start_feed_target(
         note = f"{per_feed} ml (no previous feed)"
 
     return templates.TemplateResponse(
+        request,
         "partials/start_feed_target.html",
-        {"request": request, "note": note},
+        {"note": note},
     )
 
 
@@ -400,9 +402,9 @@ def feeding_row(
         else "partials/feeding_row.html"
     )
     return templates.TemplateResponse(
+        request,
         template,
         {
-            "request": request,
             "feeding": feeding,
             "gap": gap,
             "effective_target": effective_target,
@@ -427,9 +429,9 @@ def edit_feeding_form(
         else "partials/feeding_edit_row.html"
     )
     return templates.TemplateResponse(
+        request,
         template,
         {
-            "request": request,
             "feeding": feeding,
             "tracking_mode": config.tracking_mode,
         },
@@ -467,9 +469,9 @@ def update_feeding(
         else "partials/feeding_row.html"
     )
     response = templates.TemplateResponse(
+        request,
         template,
         {
-            "request": request,
             "feeding": feeding,
             "gap": gap,
             "effective_target": effective_target,
@@ -495,9 +497,9 @@ def delete_feeding(
 
     summary = get_period_summary(session, config, feeding_period)
     return templates.TemplateResponse(
+        request,
         "partials/feeding_list.html",
         {
-            "request": request,
             "feedings": summary["feedings"],
             "summary": summary,
             "tracking_mode": config.tracking_mode,
@@ -518,9 +520,9 @@ def settings_page(
     backup = backup_service.get_status(session)
     feeding_start = get_feeding_start(session)
     return templates.TemplateResponse(
+        request,
         "settings.html",
         {
-            "request": request,
             "config": config,
             "message": message,
             "notification": notification,

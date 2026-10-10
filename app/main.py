@@ -71,8 +71,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             media_type="text/plain",
         )
     return templates.TemplateResponse(
+        request,
         "error.html",
-        {"request": request},
         status_code=500,
     )
 
